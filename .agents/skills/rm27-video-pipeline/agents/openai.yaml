@@ -1,0 +1,4 @@
+interface:
+  display_name: "RM27 Video Pipeline"
+  short_description: "Build and verify the low-latency UDP video path"
+  default_prompt: "Use $rm27-video-pipeline to implement or diagnose the RM27 video path."

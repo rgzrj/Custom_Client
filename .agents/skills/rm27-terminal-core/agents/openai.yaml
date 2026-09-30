@@ -1,0 +1,4 @@
+interface:
+  display_name: "RM27 Terminal Core"
+  short_description: "Build the low-latency Qt/QML RM27 custom terminal"
+  default_prompt: "Use $rm27-terminal-core to implement this RM27 terminal feature."

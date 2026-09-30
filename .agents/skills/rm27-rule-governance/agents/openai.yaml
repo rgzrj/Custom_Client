@@ -1,0 +1,4 @@
+interface:
+  display_name: "RM27 Rule Governance"
+  short_description: "Track RM27 rule sources, assumptions, and compliance"
+  default_prompt: "Use $rm27-rule-governance to verify this change against the current RM27 rules."

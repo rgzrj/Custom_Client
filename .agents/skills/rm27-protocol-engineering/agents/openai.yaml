@@ -1,0 +1,4 @@
+interface:
+  display_name: "RM27 Protocol Engineering"
+  short_description: "Implement and verify MQTT, Protobuf, and UDP protocols"
+  default_prompt: "Use $rm27-protocol-engineering to design or review this RM27 communication change."
