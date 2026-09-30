@@ -6,7 +6,27 @@ Windows 优先的 Qt 6/QML/C++ 操作手终端，当前用于本机模拟联调�
 
 源码仓库：<https://github.com/rgzrj/Custom_Client>。仓库包含源码、QML 界面、机器人图片资源、模拟器、测试和学习文档；运行方式见下文。
 
-编译目录、发布包、临时文件、本地视频、下载的 Qt 文档、官方规则 PDF 与本地更改日志 `Edit.md` 不纳入 Git。`规则/` 下的官方文件需自行从官方渠道取得，规则引用与协议确认状态保留在 `CLAUDE.md` 和 `.agents/skills/` 中。本仓库的源码启动需要 Qt 开发环境；给普通用户使用的免安装发布包尚未生成。
+编译目录、发布包、临时文件、本地视频、下载的 Qt 文档、官方规则 PDF 与本地更改日志 `Edit.md` 不纳入 Git。`规则/` 下的官方文件需自行从官方渠道取得，规则引用与协议确认状态保留在 `CLAUDE.md` 和 `.agents/skills/` 中。本仓库的源码启动需要 Qt 开发环境；普通用户使用下文的 Windows 便携预览包。
+
+## Windows 便携预览包
+
+普通用户解压整个发布 ZIP，双击 `rm27_terminal.exe`，在启动面板选择“离线演练进入”。无需安装 Qt、Python 或编译工具；本地视频回放可直接使用，动态裁判模拟需另行运行模拟器，正式比赛通信仍待协议接入。发布包生成在本地 `dist/`，上传 GitHub Release 后从 Releases 下载；GitHub 的“Download ZIP”下载的是源码。
+
+开发者生成 Release 便携包（旧包保留、不覆盖）：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1 -TestVideo .\build-gui\pattern-h264.mp4
+```
+
+`-TestVideo` 可省略；提供时运行已有的 GUI/视频回归测试，并将该视频作为 `demo.mp4` 随包附带。仅传入有权分发的原创测试样本。脚本执行 Release 构建、CTest、Qt/QML/FFmpeg/MinGW 部署，生成使用说明、版本与依赖清单、默认配置源码校验、ZIP 和 SHA-256。首次生成后仍需在未安装 Qt 的 Windows 机器上验证；版本清单不会将本机环境隔离测试冒充干净机器验证。
+
+打包需要 Qt Multimedia 的离线文档以附带 FFmpeg 的版权与许可正文。检查 ZIP 校验、解压内容及隔离 Qt 环境后的启动：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-windows-package.ps1 -Archive "完整发布 ZIP 路径"
+```
+
+检查进程不会读取你的真实配置，只在临时目录中创建测试配置和日志；检查目录保留，便于定位问题。
 
 ## 启动
 

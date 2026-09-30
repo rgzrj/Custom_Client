@@ -102,6 +102,9 @@ if(RM27_BUILD_APP)
                       qml/StartPanel.qml qml/RobotPhotos.qml
         )
 
+        # Release 使用 Windows GUI 子系统，双击时不额外弹出控制台。
+        set_target_properties(rm27_terminal PROPERTIES WIN32_EXECUTABLE "$<CONFIG:Release>")
+
         rm27_add_robot_photos(rm27_terminal)
 
         target_link_libraries(rm27_terminal PRIVATE
