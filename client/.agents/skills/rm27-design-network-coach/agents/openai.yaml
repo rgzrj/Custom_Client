@@ -1,0 +1,4 @@
+interface:
+  display_name: "RM27 设计与通信协作"
+  short_description: "面向计算机视觉开发者，学习设计术语、整理 AI 需求并分层评审本机通信联调"
+  default_prompt: "使用 $rm27-design-network-coach，结合我的计算机视觉背景讲解相关术语，先整理需求、分析证据与验收方法；没有明确要求时不修改代码。"

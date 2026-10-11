@@ -1,0 +1,181 @@
+syntax = "proto3";
+
+// Locally transcribed from the official 2026 V2.0.0 PDF, section 2.2.
+// Not an official distributed .proto, and not the RM2027 wire protocol.
+// Package is local namespacing only; MQTT topics are the message names.
+package rm2026.v2;
+
+// 2.2.3, PDF pages 51-53.
+message GameStatus {
+  optional uint32 current_round = 1;
+  optional uint32 total_rounds = 2;
+  optional uint32 red_score = 3;
+  optional uint32 blue_score = 4;
+  optional uint32 current_stage = 5;
+  optional int32 stage_countdown_sec = 6;
+  optional int32 stage_elapsed_sec = 7;
+  optional bool is_paused = 8;
+  optional uint32 game_result = 9;
+  optional uint32 end_reason = 10;
+}
+
+// 2.2.4, PDF pages 53-54. Health order is NOT the six-slot HUD order.
+message GlobalUnitStatus {
+  optional uint32 base_health = 1;
+  optional uint32 base_status = 2;
+  optional uint32 base_shield = 3;
+  optional uint32 outpost_health = 4;
+  optional uint32 outpost_status = 5;
+  optional uint32 enemy_base_health = 6;
+  optional uint32 enemy_base_status = 7;
+  optional uint32 enemy_base_shield = 8;
+  optional uint32 enemy_outpost_health = 9;
+  optional uint32 enemy_outpost_status = 10;
+  repeated uint32 robot_health = 11;
+  repeated int32 robot_bullets = 12;
+  optional uint32 total_damage_ally = 13;
+  optional uint32 total_damage_enemy = 14;
+}
+
+// 2.2.5, PDF pages 54-55.
+message GlobalLogisticsStatus {
+  optional uint32 remaining_economy = 1;
+  optional uint64 total_economy_obtained = 2;
+  optional uint32 tech_level = 3;
+  optional uint32 encryption_level = 4;
+}
+
+// 2.2.7, PDF pages 55-56.
+message Event {
+  optional int32 event_id = 1;
+  optional string param = 2;
+}
+
+// 2.2.9, PDF pages 57-58.
+message RobotRespawnStatus {
+  optional bool is_pending_respawn = 1;
+  optional uint32 total_respawn_progress = 2;
+  optional uint32 current_respawn_progress = 3;
+  optional bool can_free_respawn = 4;
+  optional uint32 gold_cost_for_respawn = 5;
+  optional bool can_pay_for_respawn = 6;
+}
+
+// 2.2.10, PDF pages 58-59.
+message RobotStaticStatus {
+  optional uint32 connection_state = 1;
+  optional uint32 field_state = 2;
+  optional uint32 alive_state = 3;
+  optional uint32 robot_id = 4;
+  optional uint32 robot_type = 5;
+  optional uint32 performance_system_shooter = 6;
+  optional uint32 performance_system_chassis = 7;
+  optional uint32 level = 8;
+  optional uint32 max_health = 9;
+  optional uint32 max_heat = 10;
+  optional float heat_cooldown_rate = 11;
+  optional uint32 max_power = 12;
+  optional uint32 max_buffer_energy = 13;
+  optional uint32 max_chassis_energy = 14;
+}
+
+// 2.2.11, PDF pages 59-60. remaining_ammo is permitted ammunition,
+// not a separate measurement of physical projectiles in the robot.
+message RobotDynamicStatus {
+  optional uint32 current_health = 1;
+  optional float current_heat = 2;
+  optional float last_projectile_fire_rate = 3;
+  optional uint32 current_chassis_energy = 4;
+  optional uint32 current_buffer_energy = 5;
+  optional uint32 current_experience = 6;
+  optional uint32 experience_for_upgrade = 7;
+  optional uint32 total_projectiles_fired = 8;
+  optional uint32 remaining_ammo = 9;
+  optional bool is_out_of_combat = 10;
+  optional uint32 out_of_combat_countdown = 11;
+  optional bool can_remote_heal = 12;
+  optional bool can_remote_ammo = 13;
+}
+
+// 2.2.12, PDF pages 60-61.
+message RobotModuleStatus {
+  optional uint32 power_manager = 1;
+  optional uint32 rfid = 2;
+  optional uint32 light_strip = 3;
+  optional uint32 small_shooter = 4;
+  optional uint32 big_shooter = 5;
+  optional uint32 uwb = 6;
+  optional uint32 armor = 7;
+  optional uint32 video_transmission = 8;
+  optional uint32 capacitor = 9;
+  optional uint32 main_controller = 10;
+  optional uint32 laser_detection_module = 11;
+}
+
+// 2.2.13, PDF pages 61-62. Coordinate unit/origin mapping needs confirmation.
+message RobotPosition {
+  optional float x = 1;
+  optional float y = 2;
+  optional float z = 3;
+  optional float yaw = 4;
+  optional uint32 robot_id = 5;
+}
+
+// 2.2.14, PDF pages 62-63. Latest report; no inferred self ID or countdown.
+message Buff {
+  optional uint32 robot_id = 1;
+  optional uint32 buff_type = 2;
+  optional int32 buff_level = 3;
+  optional uint32 buff_max_time = 4;
+  optional uint32 buff_left_time = 5;
+}
+
+// 2.2.24, PDF page 69. Reported selections are not command acknowledgments.
+message RobotPerformanceSelectionSync {
+  optional uint32 shooter = 1;
+  optional uint32 chassis = 2;
+  optional uint32 sentry_control = 3;
+}
+
+// 2.2.27, PDF page 70. 0 = not deployed, 1 = deployed; other codes unknown.
+message DeployModeStatusSync {
+  optional uint32 status = 1;
+}
+
+// 2.2.15, PDF pages 63-64. Decoding is NOT enforcement of penalty masking.
+message PenaltyInfo {
+  optional uint32 penalty_type = 1;
+  optional uint32 penalty_effect_sec = 2;
+  optional uint32 total_penalty_num = 3;
+}
+
+// 2.2.20, PDF page 67.
+message CustomByteBlock {
+  optional bytes data = 1;
+}
+
+// Outbound definitions are for offline encoding checks ONLY. No publisher.
+// 2.2.1, PDF pages 49-51.
+message KeyboardMouseControl {
+  optional int32 mouse_x = 1;
+  optional int32 mouse_y = 2;
+  optional int32 mouse_z = 3;
+  optional bool left_button_down = 4;
+  optional bool right_button_down = 5;
+  optional uint32 keyboard_value = 6;
+  optional bool mid_button_down = 7;
+}
+
+// 2.2.2, PDF page 51.
+message CustomControl {
+  optional bytes data = 1;
+}
+
+// 2.2.25, PDF pages 69-70.
+message CommonCommand {
+  optional uint32 cmd_type = 1;
+  optional uint32 param = 2;
+}
+
+// RadarInfoToClient intentionally absent: 2.2.19's example is incomplete
+// and conflicts with its table. No inferred nested/repeated wire schema.

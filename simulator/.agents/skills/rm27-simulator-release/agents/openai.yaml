@@ -1,0 +1,4 @@
+interface:
+  display_name: "RM27 Simulator and Release"
+  short_description: "Simulate, replay, test, and package the RM27 terminal"
+  default_prompt: "Use $rm27-simulator-release to validate or package the RM27 terminal."

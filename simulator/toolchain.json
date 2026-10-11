@@ -1,0 +1,6 @@
+{
+  "buildPythonVersion": "3.13.9",
+  "tclTkVersion": "8.6.15",
+  "pyinstallerVersion": "6.22.3",
+  "buildPythonDistribution": "Anaconda (licenses from package cache)"
+}

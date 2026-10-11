@@ -1,0 +1,14 @@
+/Edit.md
+/video/
+/recordings/
+/tmp/
+/.build-tools/
+/build-*/
+/dist/
+/.cache/
+*.rm27-replay
+*.log
+__pycache__/
+*.py[cod]
+.env
+.env.*

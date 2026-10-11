@@ -1,0 +1,1894 @@
+{
+  "format": "rm27.sim.contract.v1",
+  "cases": [
+    {
+      "id": "blue-hero",
+      "accepted": true,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      },
+      "generator": {
+        "state": {
+          "team": "blue",
+          "self_index": 5,
+          "phase": "match",
+          "remaining_seconds": 420,
+          "paused": true,
+          "robots": {
+            "red": [
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.12,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.24,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.36,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.48,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.6,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.72,
+                  0.75
+                ]
+              }
+            ],
+            "blue": [
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.12,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.24,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.36,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.48,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.6,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.72,
+                  0.25
+                ]
+              }
+            ]
+          },
+          "coins": {
+            "red": 80,
+            "blue": 100
+          },
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "red-boundary",
+      "accepted": true,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 0,
+          "max_hp": 1000,
+          "ammo": 0,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "red",
+          "self_index": 2,
+          "friendly_hp": [
+            1000,
+            1000,
+            0,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "friendly_coins": 80,
+          "enemy_coins": 100,
+          "level": 10,
+          "shield": 0,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 45,
+          "yaw_deg": -180,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        }
+      },
+      "generator": {
+        "state": {
+          "team": "red",
+          "self_index": 2,
+          "phase": "match",
+          "remaining_seconds": 420,
+          "paused": true,
+          "robots": {
+            "red": [
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.12,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.24,
+                  0.75
+                ]
+              },
+              {
+                "hp": 0,
+                "max_hp": 1000,
+                "shield": 0,
+                "max_shield": 150,
+                "level": 10,
+                "ammo": 0,
+                "position": [
+                  0.36,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.48,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.6,
+                  0.75
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.72,
+                  0.75
+                ]
+              }
+            ],
+            "blue": [
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.12,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.24,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.36,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.48,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.6,
+                  0.25
+                ]
+              },
+              {
+                "hp": 1000,
+                "max_hp": 1000,
+                "shield": 100,
+                "max_shield": 150,
+                "level": 3,
+                "ammo": 200,
+                "position": [
+                  0.72,
+                  0.25
+                ]
+              }
+            ]
+          },
+          "coins": {
+            "red": 80,
+            "blue": 100
+          },
+          "restart_count": 2,
+          "pitch_deg": 45,
+          "yaw_deg": -180,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "legacy-extensions",
+      "accepted": true,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "future_field": "ignored"
+      }
+    },
+    {
+      "id": "version",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v2.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "boolean-hp",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": true,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "hp-over-max",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1001,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "timestamp-overflow",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1e+30,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "unknown-phase",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "official",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "yaw-range",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 181,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "self-type",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": "5",
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "position-range",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              2,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "shield-over-max",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 1000,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "action-type",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": 1,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {
+      "id": "event-control",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": {
+          "own_team": "blue",
+          "self_index": 5,
+          "friendly_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "enemy_hp": [
+            1000,
+            1000,
+            1000,
+            1000,
+            1000,
+            1000
+          ],
+          "friendly_positions": [
+            [
+              0.12,
+              0.25
+            ],
+            [
+              0.24,
+              0.25
+            ],
+            [
+              0.36,
+              0.25
+            ],
+            [
+              0.48,
+              0.25
+            ],
+            [
+              0.6,
+              0.25
+            ],
+            [
+              0.72,
+              0.25
+            ]
+          ],
+          "enemy_positions": [
+            [
+              0.12,
+              0.75
+            ],
+            [
+              0.24,
+              0.75
+            ],
+            [
+              0.36,
+              0.75
+            ],
+            [
+              0.48,
+              0.75
+            ],
+            [
+              0.6,
+              0.75
+            ],
+            [
+              0.72,
+              0.75
+            ]
+          ],
+          "friendly_coins": 100,
+          "enemy_coins": 80,
+          "level": 3,
+          "shield": 100,
+          "max_shield": 150,
+          "restart_count": 2,
+          "pitch_deg": 0.0,
+          "yaw_deg": 0.0,
+          "speed_mps": 16.0,
+          "allowed_shots": 80,
+          "actions": {
+            "climb": false,
+            "fire": false,
+            "speed_up": false
+          }
+        },
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "bad\ntext"
+        }
+      }
+    },
+    {
+      "id": "null-hud",
+      "accepted": false,
+      "packet": {
+        "channel": "rm27.sim.v1.referee",
+        "sequence": 7,
+        "sent_at_unix_ms": 1789999999000,
+        "phase": "match",
+        "remaining_seconds": 420,
+        "paused": true,
+        "telemetry": {
+          "hp": 1000,
+          "max_hp": 1000,
+          "ammo": 200,
+          "chassis_power_w": 80.0,
+          "buffer_energy_j": 48.0,
+          "barrel_heat": 0,
+          "latency_ms": 0,
+          "packet_loss_pct": 0.0
+        },
+        "hud": null,
+        "event": {
+          "id": "fixture-message",
+          "category": "system",
+          "text": "\u6a21\u62df\uff1a\u98de\u9556\u547d\u4e2d \ud83d\ude00"
+        }
+      }
+    },
+    {"id":"structures-zero-hp","accepted":true,"packet":{"channel":"rm27.sim.v1.referee","sequence":7,"sent_at_unix_ms":1789999999000,"phase":"match","telemetry":{"hp":0,"max_hp":1000,"chassis_power_w":0,"buffer_energy_j":0,"barrel_heat":0,"ammo":0,"latency_ms":0,"packet_loss_pct":0},"hud":{"own_team":"blue","friendly_hp":[0,0,0,0,0,0],"enemy_hp":[0,0,0,0,0,0],"friendly_positions":[[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5]],"enemy_positions":[[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5]],"friendly_coins":0,"enemy_coins":0,"restart_count":0,"pitch_deg":0,"speed_mps":0,"allowed_shots":0,"structures":{"friendly_base":{"hp":0,"max_hp":5000},"enemy_base":{"hp":5000,"max_hp":5000},"friendly_outpost":{"hp":300,"max_hp":1500},"enemy_outpost":{"hp":1500,"max_hp":1500}}}}},
+    {"id":"structures-bool-hp","accepted":false,"packet":{"channel":"rm27.sim.v1.referee","sequence":7,"sent_at_unix_ms":1789999999000,"phase":"match","telemetry":{"hp":0,"max_hp":1000,"chassis_power_w":0,"buffer_energy_j":0,"barrel_heat":0,"ammo":0,"latency_ms":0,"packet_loss_pct":0},"hud":{"own_team":"blue","friendly_hp":[0,0,0,0,0,0],"enemy_hp":[0,0,0,0,0,0],"friendly_positions":[[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5]],"enemy_positions":[[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5]],"friendly_coins":0,"enemy_coins":0,"restart_count":0,"pitch_deg":0,"speed_mps":0,"allowed_shots":0,"structures":{"friendly_base":{"hp":true,"max_hp":5000},"enemy_base":{"hp":5000,"max_hp":5000},"friendly_outpost":{"hp":300,"max_hp":1500},"enemy_outpost":{"hp":1500,"max_hp":1500}}}}},
+    {"id":"structures-missing-outpost","accepted":false,"packet":{"channel":"rm27.sim.v1.referee","sequence":7,"sent_at_unix_ms":1789999999000,"phase":"match","telemetry":{"hp":0,"max_hp":1000,"chassis_power_w":0,"buffer_energy_j":0,"barrel_heat":0,"ammo":0,"latency_ms":0,"packet_loss_pct":0},"hud":{"own_team":"blue","friendly_hp":[0,0,0,0,0,0],"enemy_hp":[0,0,0,0,0,0],"friendly_positions":[[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5]],"enemy_positions":[[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5]],"friendly_coins":0,"enemy_coins":0,"restart_count":0,"pitch_deg":0,"speed_mps":0,"allowed_shots":0,"structures":{"friendly_base":{"hp":0,"max_hp":5000},"enemy_base":{"hp":5000,"max_hp":5000},"friendly_outpost":{"hp":300,"max_hp":1500}}}}}
+  ]
+}
