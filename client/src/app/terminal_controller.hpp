@@ -12,6 +12,7 @@
 #include "app/operator_input.hpp"
 #include "core/freshness_grade.hpp"
 #include "core/rm2026_state.hpp"
+#include "core/rm2026_commands.hpp"
 #include "core/input_mapping.hpp"
 #include "core/pairing_session.hpp"
 #include "core/terminal_state.hpp"
@@ -95,6 +96,7 @@ class TerminalController final : public QObject {
     Q_PROPERTY(QString ownTeamPreference READ ownTeamPreference NOTIFY stateChanged)
     // 开局配置里挑选的本车机型（角色 id，空串表示未指定）；裁判数据到位后由数据决定实际本车。
     Q_PROPERTY(QString ownRobotPreference READ ownRobotPreference NOTIFY stateChanged)
+    Q_PROPERTY(int officialActionRobotId READ officialActionRobotId NOTIFY stateChanged)
 
 public:
     // simulationPort / simulationMqttPort 传 0 表示「用启动面板保存的端点」；
@@ -160,6 +162,15 @@ public:
     Q_INVOKABLE void setUiOccupied(bool occupied);
     // 单一输入闸门：命令类动作必须先过 evaluateCommand，界面类动作只派发。
     Q_INVOKABLE bool submitInputAction(const QString& actionId);
+    [[nodiscard]] int officialActionRobotId() const;
+    Q_INVOKABLE bool requestPerformance(int shooter, int chassis, int sentryControl, int expectedRobotId);
+    Q_INVOKABLE bool requestDeployment(int mode, int expectedRobotId);
+    Q_INVOKABLE bool requestAssembly(int operation, int difficulty, int expectedRobotId);
+    Q_INVOKABLE bool requestCommon(int type, int parameter, int expectedRobotId);
+    Q_INVOKABLE bool requestRune(int expectedRobotId);
+    Q_INVOKABLE bool requestDart(int target, bool open, bool confirm, int expectedRobotId);
+    Q_INVOKABLE bool requestSentry(int commandId, int expectedRobotId);
+    Q_INVOKABLE bool requestAirSupport(int commandId, int expectedRobotId);
     // 本地选片可重复打开；UDP 同源短路、异源需最短驻留，确认后才记录来源。
     Q_INVOKABLE bool requestVideoSource(int source);
     [[nodiscard]] QVariantMap hudSnapshot() const;
@@ -202,6 +213,7 @@ signals:
     void connectionProfileApplied();
 
 private:
+    bool requestOfficialCommand(const rm27::historical::rm2026::Command& command, int expectedRobotId);
     void applySimulationSample(const rm27::sim::RefereeSample& sample);
     void showDecision(const rm27::GateDecision& decision);
     void setAlert(QString text, bool critical);

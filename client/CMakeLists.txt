@@ -150,7 +150,7 @@ if(RM27_BUILD_APP)
             URI RM27.Terminal
             VERSION 1.0
             QML_FILES qml/Main.qml qml/Theme.qml qml/HudOverlay.qml qml/OperatorCamera.qml
-                      qml/StartPanel.qml qml/RobotPhotos.qml qml/DisplaySettings.qml qml/BattlefieldMap.qml
+                      qml/StartPanel.qml qml/OfficialActions.qml qml/RobotPhotos.qml qml/DisplaySettings.qml qml/BattlefieldMap.qml
         )
 
         # Release 使用 Windows GUI 子系统，双击时不额外弹出控制台。
@@ -250,6 +250,9 @@ if(RM27_BUILD_APP)
                 historicalHudPresentation historicalGamePresentation)
             add_test(NAME rm27_ui_layout_tests COMMAND rm27_playback_tests uiHierarchy)
             add_test(NAME rm27_operator_input_tests COMMAND rm27_playback_tests operatorInputLifecycle respawnShortcuts)
+            add_test(NAME rm27_official_action_ui_tests COMMAND rm27_playback_tests officialActionPanel)
+            set_tests_properties(rm27_official_action_ui_tests PROPERTIES
+                ENVIRONMENT "QT_QPA_PLATFORM=windows" TIMEOUT 15)
             set_tests_properties(rm27_operator_input_tests PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
             set_tests_properties(rm27_ui_layout_tests PROPERTIES

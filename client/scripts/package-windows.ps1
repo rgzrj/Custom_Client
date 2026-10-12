@@ -62,6 +62,7 @@ foreach ($runtimeFile in $ffmpegSource.runtime_files.PSObject.Properties) {
     }
 }
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'packaging\README.txt') -Destination $packageDirectory
+Copy-Item -LiteralPath (Join-Path $projectDirectory 'docs\hardware-integration.md') -Destination $packageDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'packaging\THIRD_PARTY.md') -Destination $packageDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'packaging\qt.conf') -Destination $packageDirectory
 if ($TestVideo) {

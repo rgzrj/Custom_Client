@@ -766,6 +766,18 @@ Item {
             value: hud.hudData.allowedShots === undefined ? "--" : String(hud.hudData.allowedShots)
             valueColor: "#58D9E9"
         }
+        Readout {
+            objectName: "heatReadout"
+            label: "枪口热量"
+            value: hud.fresh ? hud.backend.barrelHeatLabel : "--"
+            valueColor: theme.textSecondary
+        }
+        Readout {
+            objectName: "bufferEnergyReadout"
+            label: "缓冲能量"
+            value: hud.fresh ? hud.backend.bufferEnergyLabel : "--"
+            valueColor: theme.textSecondary
+        }
     }
 
     // —— 左下角：本车机型、等级、装甲、护盾、功率 ——

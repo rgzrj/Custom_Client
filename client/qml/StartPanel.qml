@@ -28,6 +28,7 @@ Item {
     signal requestLocalVideo()
     signal requestSimulationVideo()
     signal requestMapImage()
+    signal requestOfficialActions()
 
     Theme { id: theme }
     // 机型表与本车选择共用同一份资源（按名字内置的线稿）。
@@ -909,6 +910,12 @@ Item {
                         }
 
                         // 「标题即快捷键表」：按键与文案都来自同一张动作表。
+                        PanelButton {
+                            objectName: "startPanelOfficialActions"
+                            Layout.fillWidth: true
+                            text: "赛事操作与参数"
+                            onClicked: panel.requestOfficialActions()
+                        }
                         PanelButton {
                             objectName: "startPanelShortcutsToggle"
                             Layout.fillWidth: true

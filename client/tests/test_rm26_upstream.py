@@ -233,6 +233,10 @@ class BackendChecks(unittest.TestCase):
         report = rig.wait(lambda r: len(r.get("reports", {})) == 24 and r["hud"]["hp"] == "0 / 400")
         gui_stalls = report["gui_stalls"] # Exclude initial QML/font startup from I/O measurements.
         self.assertEqual(report["hud"]["hp"], "0 / 400")
+        self.assertEqual(report["hud"]["buffer_energy"], "0 J")
+        self.assertEqual(report["hud"]["heat"], "2.5")
+        self.assertEqual(report["hud"]["power"], "--")
+        self.assertEqual(report["hud"]["physical_ammo"], "--")
         self.assertFalse(report["hud"]["armed"])
         self.assertEqual(report["hud"]["map"], {})
         self.assertTrue(report["state"]["control_constraints"]["penalty_release_unverified"])
@@ -313,6 +317,8 @@ class BackendChecks(unittest.TestCase):
         self.assertNotIn("current_health", report["reports"]["RobotDynamicStatus"]["fields"])
         self.assertEqual(report["reports"]["RobotDynamicStatus"]["fields"]["current_heat"], 0)
         self.assertEqual(report["state"]["self_dynamic"], {"heat": 0})
+        self.assertEqual(report["hud"]["buffer_energy"], "--")
+        self.assertEqual(report["hud"]["heat"], "0")
         # Expiry is per topic. Keep dynamic fresh while static/global/game expires.
         until = time.monotonic() + 1.8
         while time.monotonic() < until:
@@ -326,6 +332,8 @@ class BackendChecks(unittest.TestCase):
             and "path_plan" not in r.get("state", {}) and "map_click_report" not in r.get("state", {})
             and "custom_bytes" not in r.get("state", {}))
         self.assertNotIn("friendlyCoins", report["hud"]["data"])
+        self.assertEqual(report["hud"]["buffer_energy"], "--")
+        self.assertEqual(report["hud"]["heat"], "--")
         self.assertNotIn("penalty", report["state"])
         self.assertNotIn("rune", report["state"])
         self.assertNotIn("sentry_status", report["state"])
@@ -336,6 +344,8 @@ class BackendChecks(unittest.TestCase):
         report = rig.wait(lambda r: r.get("hud", {}).get("data", {}).get("ownTeam") == "blue")
         self.assertEqual(report["hud"]["hp"], "-- / --")
         self.assertEqual(report["hud"]["messages"], [])
+        self.assertEqual(report["hud"]["buffer_energy"], "--")
+        self.assertEqual(report["hud"]["heat"], "--")
         self.assertNotIn("dart_status", report["state"])
         self.assertTrue(report["state"]["control_constraints"]["penalty_release_unverified"])
         publish(rig.stream, "TechCoreMotionStateSync", message("TechCoreMotionStateSync", {"remain_time_all": 0}, True))
@@ -379,6 +389,8 @@ class BackendChecks(unittest.TestCase):
         rig.stream = None
         report = rig.wait(lambda r: r.get("link") == "offline" and not r["hud"]["fresh"])
         self.assertEqual(report["reports"], {})
+        self.assertEqual(report["hud"]["buffer_energy"], "--")
+        self.assertEqual(report["hud"]["heat"], "--")
         for key in ("rune", "sentry_status", "dart_status", "tech_core", "special_mechanisms", "injury", "path_plan", "map_click_report", "custom_bytes", "units", "economy"):
             self.assertNotIn(key, report["state"])
         self.assertTrue(report["state"]["control_constraints"]["penalty_release_unverified"])

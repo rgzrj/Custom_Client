@@ -632,6 +632,8 @@ QVariantMap TerminalController::refereeDiagnostics() const
         result.insert("video", video);
     }
     result.insert("hud", QVariantMap{{"data", hudSnapshot()}, {"hp", hpLabel()},
+        {"buffer_energy", bufferEnergyLabel()}, {"heat", barrelHeatLabel()},
+        {"power", chassisPowerLabel()}, {"physical_ammo", ammoLabel()},
         {"fresh", refereeFresh()}, {"armed", controlsArmed()}, {"map", mapSnapshot()},
         {"messages", eventMessages()}, {"source", linkBannerText()}, {"alert", alertText()}});
     return result;
@@ -664,6 +666,9 @@ void TerminalController::applyHistoricalSnapshot(
     mqttConnected_ = subscribed;
     hudSnapshot_.clear();
     hpLabel_ = QStringLiteral("-- / --");
+    chassisPowerLabel_ = QStringLiteral("--");
+    bufferEnergyLabel_ = QStringLiteral("--");
+    ammoLabel_ = QStringLiteral("--");
     barrelHeatLabel_ = QStringLiteral("--");
     historicalPhaseLabel_ = QStringLiteral("未知");
     QString gameSummary = QStringLiteral("比赛数据未知 / 已过期");
@@ -725,6 +730,8 @@ void TerminalController::applyHistoricalSnapshot(
                     + (maximum ? QString::number(*maximum) : QStringLiteral("--"));
             }
             if (dynamic.heat) barrelHeatLabel_ = QString::number(*dynamic.heat);
+            if (dynamic.bufferEnergy)
+                bufferEnergyLabel_ = QString::number(*dynamic.bufferEnergy) + QStringLiteral(" J");
             if (dynamic.permittedShots) hudSnapshot_.insert("allowedShots", *dynamic.permittedShots);
             // No physical ammo, gimbal angle, action flags or inferred video freshness.
         }
@@ -782,7 +789,7 @@ void TerminalController::applyHistoricalSnapshot(
     refereeGrade_ = rm27::gradeForAge(lastRefereeSampleAtMs_ < 0 ? -1
         : QDateTime::currentMSecsSinceEpoch() - lastRefereeSampleAtMs_);
     setAlert((upstreamData_ && !protocolTestSource_
-        ? QStringLiteral("RM2026 裁判数据 · %1 · %2 · 指令待接入")
+        ? QStringLiteral("RM2026 裁判数据 · %1 · %2 · 控制权限待核验")
         : QStringLiteral("RM2026 本机合成测试 · %1 · %2 · 禁止下发")).arg(
         !subscribed ? QStringLiteral("链路未连接") : state_.referee.fresh
         ? QStringLiteral("只读数据新鲜") : QStringLiteral("无数据 / 已过期"), gameSummary), !state_.referee.fresh);
@@ -995,6 +1002,93 @@ rm27::protocol::rm2026::CommandSendResult TerminalController::submitRm2026Comman
 void TerminalController::inspectMotionGate()
 {
     showDecision(rm27::evaluateCommand(state_, CommandKind::RobotMotion));
+}
+
+int TerminalController::officialActionRobotId() const
+{
+#ifdef RM27_UPSTREAM_BACKEND
+    const auto context = commandContext();
+    if (context.identityFresh && context.reportedId && context.reportedId == context.requestedId)
+        return int(*context.reportedId);
+#endif
+    return 0;
+}
+
+bool TerminalController::requestOfficialCommand(
+    const rm27::historical::rm2026::Command& command, const int expectedRobotId)
+{
+    bool queued = false;
+    QString detail;
+#ifdef RM27_UPSTREAM_BACKEND
+    const auto encoded = rm27::protocol::rm2026::encodeCommand(command);
+    if (!encoded.error.isEmpty()) detail = QStringLiteral("参数无效");
+    else if (expectedRobotId <= 0 || expectedRobotId != officialActionRobotId())
+        detail = QStringLiteral("报告身份未知、过期或已变化，请重新选择");
+    else {
+        const auto context = commandContext();
+        const auto result = submitRm2026Command(command);
+        queued = result.status == rm27::protocol::rm2026::CommandSendStatus::Queued;
+        if (queued) detail = QStringLiteral("请求已排队，等待传输确认；尚未确认执行");
+        else if (!context.businessPolicyReady) detail = QStringLiteral("操作权限尚未核验");
+        else {
+            const auto gate = rm27::evaluateCommand(context.terminal, CommandKind::EventOperation);
+            detail = !gate.allowed ? blockReasonText(gate.block)
+                : QStringLiteral("资格、费用或链路条件未满足");
+        }
+    }
+#else
+    detail = QStringLiteral("当前构建不支持 RM2026 赛事操作");
+#endif
+    lastInputDecision_ = (queued ? QStringLiteral("赛事操作 · ") : QStringLiteral("赛事操作 · 未发送：")) + detail;
+    setAlert(lastInputDecision_, !queued);
+    return queued;
+}
+
+bool TerminalController::requestPerformance(int shooter, int chassis, int sentryControl, int expectedRobotId)
+{
+    const auto optionalCode = [](int code) -> std::optional<std::uint32_t> {
+        return code == 0 ? std::nullopt : std::optional<std::uint32_t>(code);
+    };
+    // UI uses -1 for explicitly unchanged sentry control; wire 0 remains present.
+    return requestOfficialCommand(rm27::historical::rm2026::PerformanceCommand{
+        optionalCode(shooter), optionalCode(chassis), sentryControl == -1 ? std::nullopt
+            : std::optional<std::uint32_t>(sentryControl)}, expectedRobotId);
+}
+bool TerminalController::requestDeployment(int mode, int expectedRobotId)
+{
+    return requestOfficialCommand(rm27::historical::rm2026::DeployCommand{std::uint32_t(mode)}, expectedRobotId);
+}
+bool TerminalController::requestAssembly(int operation, int difficulty, int expectedRobotId)
+{
+    if (difficulty < 0 || difficulty > 4) {
+        lastInputDecision_ = QStringLiteral("赛事操作 · 未发送：装配难度须为0至4");
+        setAlert(lastInputDecision_, true);
+        return false;
+    }
+    return requestOfficialCommand(rm27::historical::rm2026::AssemblyCommand{
+        std::uint32_t(operation), std::uint32_t(difficulty)}, expectedRobotId);
+}
+bool TerminalController::requestCommon(int type, int parameter, int expectedRobotId)
+{
+    return requestOfficialCommand(rm27::historical::rm2026::CommonCommand{
+        std::uint32_t(type), std::uint32_t(parameter)}, expectedRobotId);
+}
+bool TerminalController::requestRune(int expectedRobotId)
+{
+    return requestOfficialCommand(rm27::historical::rm2026::RuneCommand{}, expectedRobotId);
+}
+bool TerminalController::requestDart(int target, bool open, bool confirm, int expectedRobotId)
+{
+    return requestOfficialCommand(rm27::historical::rm2026::DartCommand{
+        std::uint32_t(target), open, confirm}, expectedRobotId);
+}
+bool TerminalController::requestSentry(int commandId, int expectedRobotId)
+{
+    return requestOfficialCommand(rm27::historical::rm2026::SentryCommand{std::uint32_t(commandId)}, expectedRobotId);
+}
+bool TerminalController::requestAirSupport(int commandId, int expectedRobotId)
+{
+    return requestOfficialCommand(rm27::historical::rm2026::AirSupportCommand{std::uint32_t(commandId)}, expectedRobotId);
 }
 
 void TerminalController::enterLocalPlayback()

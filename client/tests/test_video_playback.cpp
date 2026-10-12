@@ -172,6 +172,106 @@ private slots:
         other.reset(); QVERIFY(!input.enabled()); QCOMPARE(input.frame().keys, 0u);
         input.observe(nullptr); input.setEnabled(true); QVERIFY(!input.enabled());
     }
+    void officialActionPanel()
+    {
+        // UI-only identity fixture; it owns no transport or control permission.
+        QQmlApplicationEngine engine;
+        engine.loadData("import QtQuick\nimport QtQuick.Controls\nimport \".\"\n"
+            "ApplicationWindow { width: 1180; height: 680; visible: true; color: \"#071019\";"
+            "QtObject { id: source; objectName: \"actionIdentityFixture\";"
+            "property int officialActionRobotId: 3; signal stateChanged();"
+            "onOfficialActionRobotIdChanged: stateChanged() }"
+            "OfficialActions { objectName: \"testOfficialActions\"; backend: source } }",
+            QUrl::fromLocalFile(QFileInfo(QStringLiteral(RM27_QML_SOURCE)).absolutePath()
+            + QStringLiteral("/ActionHarness.qml")));
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+        QVERIFY(window && QTest::qWaitForWindowExposed(window));
+        auto* popup = window->findChild<QObject*>("testOfficialActions");
+        auto* source = window->findChild<QObject*>("actionIdentityFixture");
+        QVERIFY(popup && source);
+        QSignalSpy submitted(popup, SIGNAL(submitRequested(QString,QVariant,int)));
+        QVERIFY(submitted.isValid());
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        QTRY_VERIFY(popup->property("visible").toBool());
+        auto* choice = findVisual(window->contentItem(), "officialActionChoice");
+        QVERIFY(choice);
+        QVERIFY(!popup->property("complete").toBool());
+        choice->setProperty("currentIndex", 0);
+        const auto select = [&](const char* name, int index) {
+            auto* field = findVisual(window->contentItem(), QString::fromLatin1(name));
+            if (!field) return false;
+            field->setProperty("currentIndex", index);
+            return QMetaObject::invokeMethod(field, "activated", Q_ARG(int, index));
+        };
+        QVERIFY(select("officialParameter_shooter", 0));
+        QVERIFY(select("officialParameter_chassis", 0));
+        QVERIFY(select("officialParameter_sentry", 0)); // Explicitly unchanged, not wire zero.
+        QVERIFY(!popup->property("complete").toBool());
+        QVERIFY(select("officialParameter_sentry", 1)); // Actual wire zero must remain present.
+        QVERIFY(popup->property("complete").toBool());
+        QCOMPARE(popup->property("draft").toMap().value("sentry").toInt(), 0);
+        QVERIFY(window->grabWindow().save(rm27::app::previewPath("official-actions-1180x680.png")));
+        QVERIFY(QMetaObject::invokeMethod(popup, "submitDraft"));
+        QCOMPARE(submitted.size(), 1);
+        QCOMPARE(submitted[0][0].toString(), QStringLiteral("performance"));
+        QCOMPARE(submitted[0][1].toMap(), (QVariantMap{{"shooter",0},{"chassis",0},{"sentry",0}}));
+        QCOMPARE(submitted[0][2].toInt(), 3);
+        QVERIFY(!popup->property("visible").toBool());
+        QVERIFY(popup->property("draft").toMap().isEmpty());
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        choice->setProperty("currentIndex", 3); // Numeric quantity control.
+        QTRY_COMPARE(popup->property("draft").toMap().value("quantity").toInt(), 10);
+        QVERIFY(popup->property("complete").toBool());
+        source->setProperty("officialActionRobotId", 103);
+        QVERIFY(!popup->property("visible").toBool());
+        QVERIFY(popup->property("draft").toMap().isEmpty());
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        QCOMPARE(popup->property("targetRobotId").toInt(), 103);
+        source->setProperty("officialActionRobotId", 0); // Disconnect / expiry.
+        QVERIFY(!popup->property("visible").toBool());
+        QCOMPARE(submitted.size(), 1); // No replay on identity changes.
+
+        TerminalController terminal(false, nullptr, 0, false, 0, false, true);
+        QCOMPARE(terminal.officialActionRobotId(), 0);
+        QVERIFY(!terminal.requestPerformance(0, 0, -1, 3));
+#ifdef RM27_UPSTREAM_BACKEND
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("参数无效")));
+#endif
+        QVERIFY(!terminal.requestPerformance(1, 2, 0, 3));
+#ifdef RM27_UPSTREAM_BACKEND
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("身份未知")));
+#endif
+        QVERIFY(!terminal.requestAssembly(2, -1, 3));
+        QVERIFY(!terminal.requestCommon(1, 11, 3));
+        QVERIFY(!terminal.requestDeployment(1, 3));
+        QVERIFY(!terminal.requestRune(3));
+        QVERIFY(!terminal.requestDart(6, true, true, 3));
+        QVERIFY(!terminal.requestSentry(2, 3));
+        QVERIFY(!terminal.requestAirSupport(4, 3));
+        QVERIFY(!terminal.controlsArmed());
+
+        QQmlApplicationEngine mainEngine;
+        mainEngine.rootContext()->setContextProperty("terminal", &terminal);
+        mainEngine.rootContext()->setContextProperty("initialVideo", QUrl());
+        mainEngine.rootContext()->setContextProperty("initialSimUdpVideo", false);
+        mainEngine.load(QUrl::fromLocalFile(QStringLiteral(RM27_QML_SOURCE)));
+        QVERIFY(!mainEngine.rootObjects().isEmpty());
+        auto* mainWindow = qobject_cast<QQuickWindow*>(mainEngine.rootObjects().first());
+        QVERIFY(mainWindow && QTest::qWaitForWindowExposed(mainWindow));
+        auto* start = mainWindow->findChild<QObject*>("startPanel");
+        QVERIFY(start && QMetaObject::invokeMethod(start, "requestOfficialActions"));
+        auto* realPopup = mainWindow->findChild<QObject*>("officialActionsPopup");
+        QVERIFY(realPopup);
+        QTRY_VERIFY(realPopup->property("visible").toBool());
+        QVERIFY(terminal.uiOccupied());
+        QVERIFY(!mainWindow->property("startPanelVisible").toBool());
+        auto* submit = findVisual(mainWindow->contentItem(), "officialActionSubmit");
+        QVERIFY(submit && !submit->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(realPopup, "close"));
+        QVERIFY(!terminal.uiOccupied());
+        QVERIFY(!terminal.controlsArmed());
+    }
 #ifdef RM27_UPSTREAM_BACKEND
     void upstreamHevcVideo()
     {
@@ -700,6 +800,8 @@ private slots:
         Snapshot snapshot;
         snapshot.selfConfig = Received<SelfConfig>{{101, 1000, 3, Team::Blue}, now};
         snapshot.selfDynamic = Received<SelfDynamic>{{850, 80, 20.0F, 24.0F}, now};
+        snapshot.selfDynamic->value.bufferEnergy = 4294967295U;
+        snapshot.selfDynamic->value.chassisEnergy = 123;
         Units units;
         units.ally.base.health = 5000;
         units.enemy.base.health = 4000;
@@ -741,6 +843,12 @@ private slots:
         QCOMPARE(text("friendlySlotHp1"), QStringLiteral("--")); // No aerial HP in this protocol.
         QCOMPARE(text("selfRobotLabel"), QStringLiteral("本车 · 英雄"));
         QCOMPARE(terminal.hpLabel(), QStringLiteral("850 / 1000"));
+        QCOMPARE(terminal.bufferEnergyLabel(), QStringLiteral("4294967295 J"));
+        QCOMPARE(window->findChild<QObject*>("bufferEnergyReadout")->property("value").toString(), QStringLiteral("4294967295 J"));
+        QCOMPARE(window->findChild<QObject*>("heatReadout")->property("value").toString(), QStringLiteral("20"));
+        QCOMPARE(terminal.barrelHeatLabel(), QStringLiteral("20"));
+        QCOMPARE(terminal.chassisPowerLabel(), QStringLiteral("--"));
+        QCOMPARE(terminal.ammoLabel(), QStringLiteral("--"));
         QCOMPARE(hud->property("ownTeam").toString(), QStringLiteral("blue"));
         QCOMPARE(window->findChild<QObject*>("friendly_baseFill")->property("ratio").toDouble(), 0.0);
         QCOMPARE(terminal.phaseLabel(), QStringLiteral("比赛中"));
@@ -764,6 +872,9 @@ private slots:
         QCOMPARE(text("coinReadout"), QStringLiteral("金币 100"));
         QCOMPARE(terminal.hpLabel(), QStringLiteral("-- / --"));
         QVERIFY(!terminal.hudSnapshot().contains("allowedShots"));
+        QCOMPARE(terminal.bufferEnergyLabel(), QStringLiteral("--"));
+        QCOMPARE(window->findChild<QObject*>("bufferEnergyReadout")->property("value").toString(), QStringLiteral("--"));
+        QCOMPARE(terminal.barrelHeatLabel(), QStringLiteral("--"));
 
         terminal.applyHistoricalSnapshot({}, true);
         QTRY_COMPARE(text("coinReadout"), QStringLiteral("金币 --"));
@@ -778,6 +889,7 @@ private slots:
 
         snapshot.selfConfig = Received<SelfConfig>{{1, 1000, 2, Team::Red}, now};
         snapshot.selfDynamic = Received<SelfDynamic>{{0, 0, {}, {}}, now};
+        snapshot.selfDynamic->value.bufferEnergy = 0;
         snapshot.economy = Received<Economy>{{0}, now};
         units.enemy.outpost.life = OutpostLife::Unknown;
         units.enemy.base.health = 0;
@@ -789,6 +901,8 @@ private slots:
         QCOMPARE(text("enemy_baseHp"), QStringLiteral("敌方 · 蓝方 基地 0"));
         QCOMPARE(text("enemy_outpostStatus"), QStringLiteral("前哨 未知"));
         QCOMPARE(terminal.hudSnapshot().value("allowedShots").toUInt(), 0U);
+        QCOMPARE(terminal.bufferEnergyLabel(), QStringLiteral("0 J"));
+        QCOMPARE(window->findChild<QObject*>("bufferEnergyReadout")->property("value").toString(), QStringLiteral("0 J"));
         QVERIFY(!terminal.hudSnapshot().contains("speedMps"));
         QVERIFY(!terminal.hudSnapshot().contains("yawDeg"));
         QVERIFY(!terminal.controlsArmed());

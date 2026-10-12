@@ -66,9 +66,37 @@ ApplicationWindow {
     // 界面占用：启动面板、文件对话框、选手面板展开都算占屏 → 交给单一闸门拦截指令。
     function syncUiOccupied() {
         root.backend.setUiOccupied(root.startPanelVisible || videoDialog.visible || mapDialog.visible
-                                   || hudLayer.cameraExpanded);
+                                   || hudLayer.cameraExpanded || officialActions.visible);
     }
     onStartPanelVisibleChanged: root.syncUiOccupied()
+
+    OfficialActions {
+        id: officialActions
+        objectName: "officialActionsPopup"
+        backend: root.backend
+        onVisibleChanged: root.syncUiOccupied()
+        onSubmitRequested: (action, parameters, robotId) => {
+            // Popup closure clears occupancy first; held input remains quarantined.
+            Qt.callLater(function() {
+                let accepted = false;
+                switch (action) {
+                case "performance": accepted = root.backend.requestPerformance(parameters.shooter, parameters.chassis, parameters.sentry, robotId); break;
+                case "deploy": accepted = root.backend.requestDeployment(parameters.mode, robotId); break;
+                case "assembly": accepted = root.backend.requestAssembly(parameters.operation, parameters.difficulty, robotId); break;
+                case "ammo17": accepted = root.backend.requestCommon(1, parameters.quantity, robotId); break;
+                case "ammo42": accepted = root.backend.requestCommon(2, parameters.quantity, robotId); break;
+                case "freeRespawn": accepted = root.backend.requestCommon(3, 0, robotId); break;
+                case "paidRespawn": accepted = root.backend.requestCommon(4, 0, robotId); break;
+                case "rune": accepted = root.backend.requestRune(robotId); break;
+                case "dart": accepted = root.backend.requestDart(parameters.target, parameters.open === 1, parameters.confirm === 1, robotId); break;
+                case "sentry": accepted = root.backend.requestSentry(parameters.command, robotId); break;
+                case "air": accepted = root.backend.requestAirSupport(parameters.command, robotId); break;
+                }
+                if (!accepted && !root.startPanelVisible && root.backend.officialActionRobotId === robotId)
+                    officialActions.open();
+            });
+        }
+    }
 
     // 快捷键表来自 core 的动作表：界面标题与按键提示同源，改键位不必改文案。
     function actionKeys(id) {
@@ -823,6 +851,10 @@ ApplicationWindow {
         backend: root.backend
         link: root.link
         onEntered: root.startPanelVisible = false
+        onRequestOfficialActions: {
+            root.startPanelVisible = false;
+            officialActions.open();
+        }
         onRequestLocalVideo: root.backend.requestVideoSource(1)
         onRequestSimulationVideo: root.backend.requestVideoSource(2)
         onRequestMapImage: mapDialog.open()
