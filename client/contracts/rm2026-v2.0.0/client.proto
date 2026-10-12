@@ -154,7 +154,8 @@ message CustomByteBlock {
   optional bytes data = 1;
 }
 
-// Outbound definitions are for offline encoding checks ONLY. No publisher.
+// Outbound definitions require explicit command gates. The normal migration's
+// M3.1 sender is wire-tested separately; its ordinary UI has no live permit yet.
 // 2.2.1, PDF pages 49-51.
 message KeyboardMouseControl {
   optional int32 mouse_x = 1;
@@ -179,3 +180,144 @@ message CommonCommand {
 
 // RadarInfoToClient intentionally absent: 2.2.19's example is incomplete
 // and conflicts with its table. No inferred nested/repeated wire schema.
+
+// 2.2.6, PDF page 55. Parallel arrays; no inferred mechanism countdown.
+message GlobalSpecialMechanism {
+  repeated uint32 mechanism_id = 1;
+  repeated int32 mechanism_time_sec = 2;
+}
+
+// 2.2.8, PDF pages 56-57. Accumulated during one life.
+message RobotInjuryStat {
+  optional uint32 total_damage = 1;
+  optional uint32 collision_damage = 2;
+  optional uint32 small_projectile_damage = 3;
+  optional uint32 large_projectile_damage = 4;
+  optional uint32 dart_splash_damage = 5;
+  optional uint32 module_offline_damage = 6;
+  optional uint32 offline_damage = 7;
+  optional uint32 penalty_damage = 8;
+  optional uint32 server_kill_damage = 9;
+  optional uint32 killer_id = 10;
+}
+
+// 2.2.16, PDF pages 64-65. Coordinates and offsets are decimeters.
+message RobotPathPlanInfo {
+  optional uint32 intention = 1;
+  optional uint32 start_pos_x = 2;
+  optional uint32 start_pos_y = 3;
+  repeated int32 offset_x = 4 [packed = true];
+  repeated int32 offset_y = 5 [packed = true];
+  optional uint32 sender_id = 6;
+}
+
+// 2.2.17, PDF pages 65-66. Official downlink topic, not an upstream alias.
+message MapClickInfo {
+  optional uint32 is_send_all = 1;
+  optional bytes robot_id = 2;
+  optional uint32 mode = 3;
+  optional uint32 enemy_id = 4;
+  optional uint32 ascii = 5;
+  optional uint32 type = 6;
+  optional float map_x = 7;
+  optional float map_y = 8;
+}
+
+// 2.2.18, PDF page 66. Official uplink topic is MapClickCmd.
+message MapClickCmd {
+  optional uint32 is_send_all = 1;
+  optional bytes robot_id = 2;
+  optional uint32 mode = 3;
+  optional uint32 enemy_id = 4;
+  optional uint32 ascii = 5;
+  optional uint32 type = 6;
+  optional float map_x = 7;
+  optional float map_y = 8;
+}
+
+// 2.2.21, PDF pages 67-68. Definitions do not enable publishing.
+message AssemblyCommand {
+  optional uint32 operation = 1;
+  optional uint32 difficulty = 2;
+}
+
+// 2.2.22, PDF pages 68-69.
+message TechCoreMotionStateSync {
+  optional uint32 maximum_difficulty_level = 1;
+  optional uint32 basic_state = 2;
+  optional uint32 putin_state = 3;
+  optional uint32 move_state = 4;
+  optional uint32 rotate_state = 5;
+  optional uint32 enemy_core_status = 6;
+  optional uint32 remain_time_all = 7;
+  optional uint32 remain_time_step = 8;
+}
+
+// 2.2.23, PDF page 69.
+message RobotPerformanceSelectionCommand {
+  optional uint32 shooter = 1;
+  optional uint32 chassis = 2;
+  optional uint32 sentry_control = 3;
+}
+
+// 2.2.26, PDF page 70.
+message HeroDeployModeEventCommand {
+  optional uint32 mode = 1;
+}
+
+// 2.2.28, PDF pages 70-71.
+message RuneActivateCommand {
+  optional uint32 activate = 1;
+}
+
+// 2.2.29, PDF page 71.
+message RuneStatusSync {
+  optional uint32 rune_status = 1;
+  optional uint32 activated_arms = 2;
+  optional float average_rings = 3;
+}
+
+// 2.2.30, PDF pages 71-72.
+message SentryStatusSync {
+  optional uint32 posture_id = 1;
+  optional bool is_weakened = 2;
+  optional bool is_powered = 3;
+}
+
+// 2.2.31, PDF page 72.
+message DartCommand {
+  optional uint32 target_id = 1;
+  optional bool open = 2;
+  optional bool launch_confirm = 3;
+}
+
+// 2.2.32, PDF page 72. open is a three-state integer, not bool.
+message DartSelectTargetStatusSync {
+  optional uint32 target_id = 1;
+  optional uint32 open = 2;
+}
+
+// 2.2.33, PDF pages 72-73.
+message SentryCtrlCommand {
+  optional uint32 command_id = 1;
+}
+
+// 2.2.34, PDF page 73. Receipt is separate from MQTT delivery success.
+message SentryCtrlResult {
+  optional uint32 command_id = 1;
+  optional uint32 result_code = 2;
+}
+
+// 2.2.35, PDF pages 73-74. command_id includes 3 (paid countermeasure release).
+message AirSupportCommand {
+  optional uint32 command_id = 1;
+}
+
+// 2.2.36, PDF pages 74-75.
+message AirSupportStatusSync {
+  optional uint32 airsupport_status = 1;
+  optional uint32 left_time = 2;
+  optional uint32 cost_coins = 3;
+  optional uint32 is_being_targeted = 4;
+  optional uint32 shooter_status = 5;
+}

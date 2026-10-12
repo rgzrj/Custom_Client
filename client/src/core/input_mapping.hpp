@@ -11,13 +11,14 @@ namespace rm27 {
 //
 // 界面文案与按键提示**同源**：面板标题、按钮提示都由 `actionHint()` 生成，
 // 改键位不会忘记改提示（参考实现的做法）。表里只有有线键盘动作，
-// 不含任何无线或真实控制协议语义；动作最终仍要过 `evaluateCommand()` 闸门。
+// 赛事动作仅登记标识/键位，由控制器构造有类型命令并通过完整发送门。
 struct InputAction {
     std::string id;             // 稳定标识，不随键位改变
     std::string label;          // 界面文案
     std::string group;          // 所属区域，用于分组显示「标题即快捷键表」
     std::string defaultKeys;    // 默认绑定：Qt 便携式序列文本（如 Ctrl+Shift+O）
     CommandKind kind{CommandKind::RobotMotion};
+    bool refereeCommand{false}; // Event actions are not presentation-only dispatches.
 };
 
 [[nodiscard]] const std::vector<InputAction>& defaultInputActions() noexcept;

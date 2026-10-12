@@ -1,5 +1,15 @@
 # RM2026 V2.0.0 通信参考：离线解析与本机只读订阅
 
+## 当前入口（2026-10-11 M3 输入接线）
+
+普通 `build-gui/rm27_terminal.exe` 已接固定开源 MQTT/GameData 与直接 HEVC 解码，人工配对 CLI 也接普通入口，详见[客户端使用说明](../../README.md)和[配对框架](../../tools/README-pairing.md)。HistoricalVideoReceiver / 第二 UDP 解码端口 / run-rm2026-video.ps1 / VIDEO_HUD 分支已删除；LOCAL_HUD 合成 HEVC 复用同一直接解码后端。默认OFF的数据探针/参考 HUD 保留独立协议回归。以下各阶段是历史记录，其中旧视频命令和中转描述不代表当前实现。实物/官方服务/1080p60/长时/端到端待M4。M3.1已统一11类有类型上行、门控与线格式；M3.2已接有界异步PUBACK、窗口键鼠生命周期和最新输入/优先释放。普通业务权限仍未放行，控制锁定；下一段M3.3核验角色/资格/费用/处罚与业务结果，见[当前M3记录](../../docs/upstream-migration.md)。
+
+## 2026-10-11 迁移前核验（M0）
+
+`client.proto` 已从17个定义补齐为35个经官方PDF逐字段核验的消息（24下行、11上行）；RadarInfoToClient外层保持待更正。新增定义尚未接入现有14主题观察器或普通客户端，不启用发布接口。下面各阶段记录描述各自已实现范围；当前完整迁移方向、开源来源及待修正差异见 [M0清单](../../docs/upstream-migration.md)、[逐字段对照](upstream-audit.json) 和 [CLAUDE.md](../../CLAUDE.md)。
+
+开发者可用 `tools/audit_rm2026_upstream.py --upstream <固定源码目录> --protoc <protoc路径> --output <JSON路径>` 重现descriptor对照与165个标量字段的零值/缺失检查；命令与固定路径见M0清单。
+
 ## 本阶段做到了什么
 
 这是按用户要求，以 **RoboMaster 2026 机甲大师高校系列赛通信协议 V2.0.0（20260626）** 为依据建立的独立历史版本参考，不是 RM2027 正式适配器。它不读取模拟器源码，不改变 `sim.v1` 契约，不接入 HUD、不连接外部网络、不发送操作指令、不修改 Windows 网卡。第二阶段新增的 MQTT 开发探针只连接字面量 `127.0.0.1`。
@@ -556,3 +566,8 @@ Buff 仅保留最新报告，不代表所有机器人全部生效增益；ID 缺
 `test_rm2026_protocol.py` 核对官方字段编号/类型/presence 与人工黄金字节；原生 MQTT 检查三类映射、全部已知 Buff 类型、未知码、负值、整数宽度、缺失替换、无效包不续期、独立过期、身份变化和重连。合成恢复阶段只报告 Buff 增益零、sentry_control 99、部署 99，旧字段不继承。probe/viewer/入站资源/合成 HUD/HEVC 演示沿用既有验收目标，样本均为人工数据。
 
 参考固定 [RM26_Client NetworkManager](https://github.com/ClearWei/RM26_Client/blob/e291f2f65f5a5924509e4e2fe1b148ff9d4b24af/src/network/NetworkManager.cpp) 的订阅/分派和 [GameData](https://github.com/ClearWei/RM26_Client/blob/e291f2f65f5a5924509e4e2fe1b148ff9d4b24af/src/core/GameData.cpp) 的 Buff/部署展示思路（MIT，Fudan University EGA Team），未复制源码。该版本性能同步已列入订阅，但 NetworkManager 未见相应分派；本项目按官方字段实现。T03 仍待完成多机器人/多类型 Buff 汇总、主 HUD 展示及特殊机制/伤害等其他下行主题。
+
+
+### 普通开源后端的M3.3业务映射
+
+普通rm27_terminal的GameData另映射TechCoreMotionStateSync、RuneStatusSync、AirSupportStatusSync和SentryCtrlResult，以及静态连接/上场/存活和动态脱战/远程资格字段。canonical schema未改动；has_保留缺失/零/false。普通发送门在实际工作线程重读报告核验角色、阶段、复活资格/费用、装配步骤及空中支援余额，完整权限仍关闭。详见[迁移清单](../../docs/upstream-migration.md#11-m33-发送时的必要业务约束2026-10-11)。历史14-topic只读探针未新增订阅；共享映射增加函数不改变其旧订阅范围。SentryCtrlResult只是收到的结果，不能唯一关联本地请求，PUBACK不代表机器人执行。

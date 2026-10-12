@@ -259,7 +259,7 @@ class DemoChecks(unittest.TestCase):
         self.assertFalse(stopped["video"]["fresh"])
         self.assertGreaterEqual(stopped["video"]["frameAgeMs"], 700)
         self.assertGreater(resumed["video"]["decodedFrames"], stopped["video"]["decodedFrames"] + 5)
-        self.assertGreater(normal["video"]["transport"]["forwardedFrames"], 5)
+        self.assertGreater(normal["video"]["transport"]["decodedFrames"], 5)
         self.assertGreater(normal["video"]["transport"]["duplicates"], 0)
         self.assertTrue(damaged["video"]["stale"])
         self.assertFalse(damaged["video"]["fresh"])
@@ -275,9 +275,12 @@ class DemoChecks(unittest.TestCase):
             self.assertTrue(value["video"]["synthetic"])
             self.assertIn("本机合成测试", value["hud"]["source"])
             self.assertFalse(value["video"]["endToEndMeasured"])
-        for value in (normal, resumed, keyframe, expired, offline, restored):
+        for value in (normal, resumed, keyframe, expired, offline):
             self.assertTrue(value["video"]["fresh"], value)
-            self.assertIn("HEVC 实验已出帧", value["video"]["stage"])
+            self.assertIn("HEVC 已出帧", value["video"]["stage"])
+        # A new reported identity must stop the old native HEVC session.
+        self.assertFalse(restored["video"]["fresh"])
+        self.assertEqual(restored["video"]["transport"], {})
         for value in (normal, stopped, resumed, damaged, keyframe, restored):
             self.assertTrue(value["hud"]["fresh"])
         for value in (expired, offline):

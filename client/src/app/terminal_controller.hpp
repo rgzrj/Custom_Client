@@ -9,12 +9,19 @@
 #include <QPointer>
 
 #include "app/connection_settings.hpp"
+#include "app/operator_input.hpp"
 #include "core/freshness_grade.hpp"
 #include "core/rm2026_state.hpp"
 #include "core/input_mapping.hpp"
 #include "core/pairing_session.hpp"
 #include "core/terminal_state.hpp"
 #include "core/video_source_policy.hpp"
+#ifdef RM27_UPSTREAM_BACKEND
+#include "protocol/rm2026/upstream_backend.hpp"
+#endif
+#ifdef RM27_UPSTREAM_VIDEO
+#include "video/upstream_video.hpp"
+#endif
 
 class QTimer;
 
@@ -30,6 +37,7 @@ class UdpVideoIngress;
 
 class TerminalController final : public QObject {
     Q_OBJECT
+    Q_PROPERTY(bool upstreamVideoActive READ upstreamVideoActive NOTIFY stateChanged)
     Q_PROPERTY(QString modeLabel READ modeLabel NOTIFY stateChanged)
     Q_PROPERTY(QString phaseLabel READ phaseLabel NOTIFY stateChanged)
     Q_PROPERTY(QString alertText READ alertText NOTIFY stateChanged)
@@ -81,7 +89,8 @@ class TerminalController final : public QObject {
     Q_PROPERTY(QObject* connection READ connectionObject CONSTANT)
     Q_PROPERTY(bool offlineDrill READ offlineDrill NOTIFY stateChanged)
     Q_PROPERTY(bool historicalLocal READ historicalLocal CONSTANT)
-    Q_PROPERTY(bool historicalVideo READ historicalVideo CONSTANT)
+    Q_PROPERTY(bool upstreamData READ upstreamData CONSTANT)
+    Q_PROPERTY(bool protocolTestSource READ protocolTestSource NOTIFY stateChanged)
     Q_PROPERTY(QString linkBannerText READ linkBannerText NOTIFY stateChanged)
     Q_PROPERTY(QString ownTeamPreference READ ownTeamPreference NOTIFY stateChanged)
     // 开局配置里挑选的本车机型（角色 id，空串表示未指定）；裁判数据到位后由数据决定实际本车。
@@ -95,12 +104,23 @@ public:
                                 bool simulationMqtt = false,
                                 quint16 simulationMqttPort = 0,
                                 bool historicalLocal = false,
-                                bool historicalVideo = false);
+                                bool upstreamData = false);
+    bool configureRm2026(const QString& host, quint16 port, unsigned robotId, bool testSource);
+    bool configureRm2026Video(const QHostAddress& bind, quint16 port,
+                             const QHostAddress& source, unsigned base, bool testSource);
+    [[nodiscard]] bool upstreamVideoActive() const noexcept { return upstreamVideoActive_; }
+    [[nodiscard]] QVariantMap refereeDiagnostics() const;
+    Q_INVOKABLE void observeInputWindow(QObject *window);
+#ifdef RM27_UPSTREAM_BACKEND
+    rm27::protocol::rm2026::CommandSendResult submitRm2026Command(
+        const rm27::historical::rm2026::Command &command);
+#endif
     // Typed, read-only application boundary; never accepts wire JSON or opens a control gate.
     void applyHistoricalSnapshot(const rm27::historical::rm2026::Snapshot& snapshot,
                                  bool subscribed);
     [[nodiscard]] bool historicalLocal() const noexcept { return historicalLocal_; }
-    [[nodiscard]] bool historicalVideo() const noexcept { return historicalVideo_; }
+    [[nodiscard]] bool upstreamData() const noexcept { return upstreamData_; }
+    [[nodiscard]] bool protocolTestSource() const noexcept { return protocolTestSource_; }
 
     [[nodiscard]] QString modeLabel() const;
     [[nodiscard]] QString phaseLabel() const;
@@ -145,7 +165,7 @@ public:
     [[nodiscard]] QVariantMap hudSnapshot() const;
     [[nodiscard]] QVariantMap mapSnapshot() const;
     [[nodiscard]] bool mqttConnected() const { return mqttConnected_; }
-    [[nodiscard]] bool mqttEnabled() const { return simMqttReceiver_ != nullptr; }
+    [[nodiscard]] bool mqttEnabled() const { return upstreamData_ || simMqttReceiver_ != nullptr; }
     [[nodiscard]] QVariantList eventMessages() const;
     [[nodiscard]] QObject* connectionObject() const;
     [[nodiscard]] rm27::app::ConnectionSettings* connection() const noexcept;
@@ -188,12 +208,20 @@ private:
     [[nodiscard]] QString videoStage() const;
     [[nodiscard]] static QString blockReasonText(rm27::GateBlock block);
     void bindPairingVideoSink();
+    void stopUpstreamVideo();
+    void pollUpstreamVideo();
 
     rm27::TerminalState state_{};
     rm27::PairingSession pairing_;
     QPointer<QVideoSink> pairingVideoSink_;
+    QMetaObject::Connection videoFrameConnection_;
     QMetaObject::Connection pairingVideoConnection_;
     rm27::app::ConnectionSettings* connection_{nullptr};
+    rm27::app::OperatorInput* operatorInput_{nullptr};
+#ifdef RM27_UPSTREAM_BACKEND
+    rm27::historical::rm2026::CommandContext commandContext() const;
+#endif
+    void syncOperatorInput();
     rm27::sim::RefereeReceiver* simReceiver_{nullptr};
     rm27::sim::MqttReceiver* simMqttReceiver_{nullptr};
     rm27::video::UdpVideoIngress* videoIngress_{nullptr};
@@ -212,8 +240,22 @@ private:
     bool alertCritical_{true};
     bool simulationActive_{false};
     const bool historicalLocal_;
-    const bool historicalVideo_;
-    const bool historicalSyntheticVideo_;
+    const bool upstreamData_;
+    bool protocolTestSource_{false};
+    unsigned requestedRobotId_{0};
+    QString upstreamHost_;
+    quint16 upstreamPort_{0};
+#ifdef RM27_UPSTREAM_BACKEND
+    std::unique_ptr<rm27::protocol::rm2026::UpstreamBackend> upstreamBackend_;
+#endif
+#ifdef RM27_UPSTREAM_VIDEO
+    std::unique_ptr<rm27::video::UpstreamVideo> upstreamVideo_;
+#endif
+    bool upstreamVideoActive_{false};
+    bool upstreamVideoTest_{false};
+    QVariantMap upstreamVideoStats_;
+    quint64 upstreamVideoSerial_{0};
+    unsigned upstreamVideoReportedId_{0};
     QString historicalPhaseLabel_{QStringLiteral("未知")};
     bool offlineDrill_{false};
     bool localPlayback_{false};

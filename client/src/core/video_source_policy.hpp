@@ -9,6 +9,7 @@ enum class VideoSource {
     None,           // 不加载任何画面
     LocalPlayback,  // 本地文件回放
     SimulationUdp,  // 本机 UDP 联调
+    Rm2026Hevc,     // 显式 RM2026 网络 HEVC
 };
 
 struct VideoSourceDecision {

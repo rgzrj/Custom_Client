@@ -10,21 +10,14 @@
 #include <QDebug>
 #include <QScopeGuard>
 #include <mutex>
-#include <QMediaPlayer>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
-#if defined(RM27_RM2026_VIDEO_HUD) || defined(RM27_RM2026_LOCAL_HUD)
 #include <QCommandLineParser>
-#endif
-#if defined(RM27_RM2026_VIDEO_HUD) || defined(RM27_RM2026_LOCAL_HUD)
-#include "video/historical_video_receiver.hpp"
-#include <QUdpSocket>
-#endif
+#include <iostream>
 #ifdef RM27_RM2026_LOCAL_HUD
 #include "protocol/rm2026/mqtt_observer.hpp"
 #include <QJsonArray>
-#include <iostream>
 #include <memory>
 #endif
 
@@ -39,7 +32,7 @@ void logMessage(QtMsgType type, const QMessageLogContext& context, const QString
 }
 }
 
-#if defined(RM27_RM2026_VIDEO_HUD)
+#if !defined(RM27_RM2026_LOCAL_HUD)
 namespace {
 void addPairingOptions(QCommandLineParser& parser)
 {
@@ -80,51 +73,7 @@ int main(int argc, char* argv[])
     QGuiApplication::setOrganizationName(QStringLiteral("RM27"));
     QGuiApplication::setApplicationName(QStringLiteral("RM2027 自定义终端"));
 
-#ifdef RM27_RM2026_VIDEO_HUD
-    QCommandLineParser parser;
-    parser.setApplicationDescription("RM2026 read-only HEVC experiment; no control.");
-    addPairingOptions(parser);
-    parser.addHelpOption();
-    parser.addOption({"protocol", "Explicit historical protocol.", "version"});
-    parser.addOption({"video-port", "UDP input port (must be explicitly selected).", "port"});
-    parser.addOption({"video-bind", "Specific local IPv4 address; no wildcard binding.", "address", "127.0.0.1"});
-    parser.addOption({"video-source", "Only accept this sender IPv4 address.", "address", "127.0.0.1"});
-    parser.addOption({"allow-network-video", "Explicitly allow non-loopback read-only video input."});
-    parser.addOption({"fragment-base", "Test sender fragment base, explicitly 0 or 1.", "index"});
-    parser.addOption({"experimental-video", "Acknowledge experimental framing assumptions."});
-    parser.addOption({"duration-ms", "Optional bounded run, 1..60000 ms.", "milliseconds"});
-    parser.process(app);
-    bool valid = false;
-    const unsigned inputPort = parser.value("video-port").toUInt(&valid);
-    if (!valid || inputPort == 0 || inputPort > 65535
-        || parser.value("protocol") != "rm2026-v2.0.0"
-        || !parser.isSet("experimental-video")
-        || (parser.value("fragment-base") != "0" && parser.value("fragment-base") != "1")) return 2;
-    QHostAddress videoBind, videoSource;
-    if (!videoBind.setAddress(parser.value("video-bind"))
-        || !videoSource.setAddress(parser.value("video-source"))
-        || videoBind.protocol() != QAbstractSocket::IPv4Protocol
-        || videoSource.protocol() != QAbstractSocket::IPv4Protocol
-        || ((!videoBind.isLoopback() || !videoSource.isLoopback())
-            && !parser.isSet("allow-network-video"))) return 2;
-    if (parser.isSet("duration-ms")) {
-        const int duration = parser.value("duration-ms").toInt(&valid);
-        if (!valid || duration < 1 || duration > 60000) return 2;
-        QTimer::singleShot(duration, &app, &QCoreApplication::quit);
-    }
-    QGuiApplication::setApplicationName(QStringLiteral("RM2026 HEVC 本机图传实验"));
-    QUdpSocket decoderReservation;
-    if (!decoderReservation.bind(QHostAddress::LocalHost, 0)) return 2;
-    const quint16 decoderPort = decoderReservation.localPort();
-    if (decoderPort == inputPort) return 2;
-    decoderReservation.close();
-    rm27::video::HistoricalVideoReceiver videoReceiver(parser.value("fragment-base").toUInt());
-    TerminalController terminal(false, nullptr, 0, false, 0, false, true);
-    if (!startPairing(parser, terminal)) return 2;
-    terminal.connection()->setSimulationVideoPort(decoderPort);
-    const bool simulationUdpVideo = false;
-    const QUrl initialVideo;
-#elif defined(RM27_RM2026_LOCAL_HUD)
+#ifdef RM27_RM2026_LOCAL_HUD
     QCommandLineParser parser;
     parser.setApplicationDescription("RM2026 synthetic loopback-only read-only QML HUD; no real control.");
     parser.addHelpOption();
@@ -171,32 +120,94 @@ int main(int argc, char* argv[])
         std::cerr << error.what() << '\n';
         return 2;
     }
-    TerminalController terminal(false, nullptr, 0, false, 0, true, syntheticHevc);
+    TerminalController terminal(false, nullptr, 0, false, 0, true);
     if (simulationUdpVideo) terminal.connection()->setSimulationVideoPort(static_cast<int>(videoPort));
-    std::unique_ptr<rm27::video::HistoricalVideoReceiver> syntheticVideo;
-    QVariantMap syntheticVideoStats;
     const QUrl initialVideo;
 #else
-    bool demoMode = false;
-    bool simulationUdpVideo = false;
-    bool simulationMqtt = false;
-    QUrl initialVideo;
-    for (int index = 1; index < argc; ++index) {
-        if (QString::fromLocal8Bit(argv[index]) == QStringLiteral("--demo")) {
-            demoMode = true;
-        }
-        if (QString::fromLocal8Bit(argv[index]) == QStringLiteral("--sim-udp-video")) {
-            simulationUdpVideo = true;
-        }
-        if (QString::fromLocal8Bit(argv[index]) == QStringLiteral("--sim-mqtt")) {
-            simulationMqtt = true;
-        }
-        if (QString::fromLocal8Bit(argv[index]) == QStringLiteral("--video") && index + 1 < argc) {
-            initialVideo = QUrl::fromLocalFile(QFileInfo(QString::fromLocal8Bit(argv[++index])).absoluteFilePath());
-        }
+    QCommandLineParser parser;
+    parser.addHelpOption();
+    addPairingOptions(parser);
+    parser.addOption({"demo", "Local demonstration."});
+    parser.addOption({"sim-mqtt", "Local simulation MQTT."});
+    parser.addOption({"sim-udp-video", "Local simulation video."});
+    parser.addOption({"video", "Local replay file.", "path"});
+    parser.addOption({"protocol", "Explicit protocol version.", "version"});
+    parser.addOption({"mqtt-host", "Explicit broker IPv4 address.", "address"});
+    parser.addOption({"mqtt-port", "Explicit broker port.", "port"});
+    parser.addOption({"robot-id", "Decimal robot ID; red infantry 3 is 3.", "id"});
+    parser.addOption({"protocol-test", "Local test source; only 127.0.0.1."});
+    parser.addOption({"hevc-udp", "Receive RM2026 HEVC directly into the existing VideoOutput."});
+    parser.addOption({"video-bind", "Explicit local IPv4 listen address.", "address"});
+    parser.addOption({"video-source", "Explicit permitted sender IPv4 address.", "address"});
+    parser.addOption({"video-port", "Explicit UDP port.", "port"});
+    parser.addOption({"fragment-base", "Explicit fragment numbering: 0 or 1.", "base"});
+    parser.addOption({"allow-network-video", "Enable the explicitly configured non-loopback listener."});
+    parser.addOption({"diagnostics-json", "Print local test diagnostics to stdout."});
+    parser.addOption({"duration-ms", "Optional bounded run, 1..60000 ms.", "ms"});
+    if (!parser.parse(app.arguments())) { std::cerr << parser.errorText().toStdString() << '\n'; return 2; }
+    if (parser.isSet("help")) parser.showHelp();
+    const bool demoMode = parser.isSet("demo");
+    const bool simulationUdpVideo = parser.isSet("sim-udp-video");
+    const bool simulationMqtt = parser.isSet("sim-mqtt");
+    const QUrl initialVideo = parser.isSet("video")
+        ? QUrl::fromLocalFile(QFileInfo(parser.value("video")).absoluteFilePath()) : QUrl{};
+    const bool upstreamMode = parser.isSet("protocol");
+    const bool nativeVideo = parser.isSet("hevc-udp");
+    const bool nativeData = parser.isSet("mqtt-host") || parser.isSet("mqtt-port") || parser.isSet("robot-id");
+    QHostAddress nativeBind, nativeSource;
+    bool videoPortValid = false;
+    const unsigned nativePort = parser.value("video-port").toUInt(&videoPortValid);
+    if (nativeVideo) {
+        if (!upstreamMode || !videoPortValid || nativePort == 0 || nativePort > 65535
+            || (parser.value("fragment-base") != "0" && parser.value("fragment-base") != "1")
+            || !nativeBind.setAddress(parser.value("video-bind"))
+            || !nativeSource.setAddress(parser.value("video-source"))
+            || nativeBind.toString() != parser.value("video-bind")
+            || nativeSource.toString() != parser.value("video-source")
+            || nativeBind.protocol() != QAbstractSocket::IPv4Protocol
+            || nativeSource.protocol() != QAbstractSocket::IPv4Protocol
+            || ((!nativeBind.isLoopback() || !nativeSource.isLoopback())
+                && !parser.isSet("allow-network-video"))) return 2;
+    } else if (parser.isSet("video-bind") || parser.isSet("video-source") || parser.isSet("video-port")
+        || parser.isSet("fragment-base") || parser.isSet("allow-network-video")) return 2;
+    bool portValid = false, idValid = false;
+    const unsigned mqttPort = parser.value("mqtt-port").toUInt(&portValid);
+    const unsigned robotId = parser.value("robot-id").toUInt(&idValid);
+    if (parser.isSet("pairing-robot-id")) {
+        bool valid = false;
+        const auto rawId = parser.value("pairing-robot-id");
+        const unsigned id = rawId.toUInt(&valid);
+        const unsigned role = id >= 101 && id <= 107 ? id - 100 : id;
+        if (!valid || QString::number(id) != rawId || !nativeVideo || parser.isSet("protocol-test")
+            || (parser.value("pairing-region") != "global" && parser.value("pairing-region") != "japan")
+            || (role != 1 && role != 2 && role != 3 && role != 4 && role != 6 && role != 7)
+            || (nativeData && (!idValid || id != robotId))) return 2;
+    } else if (parser.isSet("pairing-region") || parser.isSet("pairing-confirmed")) return 2;
+    if (upstreamMode) {
+#ifndef RM27_UPSTREAM_BACKEND
+        std::cerr << "This build has no upstream backend.\n"; return 2;
+#endif
+        if (parser.value("protocol") != "rm2026-v2.0.0"
+            || ((!nativeVideo || nativeData) && (!parser.isSet("mqtt-host")
+                || !portValid || mqttPort == 0 || mqttPort > 65535 || !idValid
+                || QString::number(robotId) != parser.value("robot-id")))
+            || demoMode || simulationMqtt || simulationUdpVideo || !initialVideo.isEmpty()
+            || (parser.isSet("diagnostics-json") && !parser.isSet("protocol-test"))) return 2;
+    } else if (parser.isSet("mqtt-host") || parser.isSet("mqtt-port") || parser.isSet("robot-id")
+        || parser.isSet("protocol-test") || parser.isSet("diagnostics-json")) return 2;
+    if (parser.isSet("duration-ms")) {
+        bool valid = false;
+        const unsigned duration = parser.value("duration-ms").toUInt(&valid);
+        if (!valid || duration == 0 || duration > 60000) return 2;
+        QTimer::singleShot(int(duration), &app, &QCoreApplication::quit);
     }
-
-    TerminalController terminal(demoMode, nullptr, 0, simulationMqtt);
+    bool useUpstream = upstreamMode;
+#ifdef RM27_UPSTREAM_BACKEND
+    useUpstream = !demoMode && !simulationMqtt && !simulationUdpVideo && initialVideo.isEmpty();
+#endif
+    TerminalController terminal(demoMode, nullptr, 0, simulationMqtt, 0, false, useUpstream);
+    if (upstreamMode && nativeData && !terminal.configureRm2026(parser.value("mqtt-host"), quint16(mqttPort),
+        robotId, parser.isSet("protocol-test"))) return 2;
 #endif
     QByteArray previousState;
     const auto recordState = [&] {
@@ -218,73 +229,16 @@ int main(int argc, char* argv[])
     if (engine.rootObjects().isEmpty()) {
         return -1;
     }
-#ifdef RM27_RM2026_VIDEO_HUD
-    auto* root = engine.rootObjects().first();
-    auto* player = root->findChild<QMediaPlayer*>(QStringLiteral("localPlayer"));
-    if (!player) return 2;
-    terminal.enterSimulationVideo();
-    terminal.configureSimulationVideoPlayer(player);
-    root->setProperty("simulationVideoSelected", true);
-    const QUrl decoderUrl(QStringLiteral("udp://127.0.0.1:%1?localaddr=127.0.0.1&fifo_size=1024&overrun_nonfatal=1")
-        .arg(decoderPort));
-    player->setSource(decoderUrl);
-    QObject::connect(player, &QMediaPlayer::sourceChanged, &videoReceiver, [&videoReceiver, decoderUrl](const QUrl& source) {
-        if (source != decoderUrl) videoReceiver.stop();
-    });
-    QObject::connect(&videoReceiver, &rm27::video::HistoricalVideoReceiver::errorOccurred, &app,
-        [](const QString& error) { qWarning().noquote() << error; });
-    QObject::connect(&videoReceiver, &rm27::video::HistoricalVideoReceiver::statsChanged, &app,
-        [&terminal, previous = QByteArray()](QVariantMap stats) mutable {
-            stats.insert("decodedFrames", terminal.decodedFrames());
-            const auto report = QJsonDocument(QJsonObject::fromVariantMap(stats)).toJson(QJsonDocument::Compact);
-            if (report == previous) return;
-            previous = report;
-            qInfo().noquote() << "RM2026_HEVC_VIDEO" << report;
-        });
-    if (!videoReceiver.start(static_cast<quint16>(inputPort), decoderPort, videoBind, videoSource)) {
-        qWarning("RM2026 HEVC input bind failed; no other process was closed.");
-        return 2;
-    }
-    qInfo().noquote() << "RM2026_HEVC_INPUT bind=" << videoBind.toString()
-        << "port=" << inputPort << "source=" << videoSource.toString()
-        << "fragmentBase=" << parser.value("fragment-base") << "control=disabled";
-    player->play();
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, &videoReceiver, [&] {
-        videoReceiver.stop();
-        player->stop();
-    });
+#if defined(RM27_UPSTREAM_VIDEO) && !defined(RM27_RM2026_LOCAL_HUD)
+    if (nativeVideo && !terminal.configureRm2026Video(nativeBind, quint16(nativePort), nativeSource,
+        parser.value("fragment-base").toUInt(), parser.isSet("protocol-test"))) return 2;
+#endif
+#ifndef RM27_RM2026_LOCAL_HUD
+    if (!startPairing(parser, terminal)) return 2;
 #endif
 #ifdef RM27_RM2026_LOCAL_HUD
-    if (syntheticHevc) {
-        QUdpSocket reservation;
-        if (!reservation.bind(QHostAddress::LocalHost, 0)) return 2;
-        const quint16 decoderPort = reservation.localPort();
-        if (decoderPort == hevcPort) return 2;
-        reservation.close();
-        syntheticVideo = std::make_unique<rm27::video::HistoricalVideoReceiver>(parser.value("fragment-base").toUInt());
-        auto* root = engine.rootObjects().first();
-        auto* player = root->findChild<QMediaPlayer*>(QStringLiteral("localPlayer"));
-        if (!player) return 2;
-        terminal.connection()->setSimulationVideoPort(decoderPort);
-        terminal.enterSimulationVideo();
-        terminal.configureSimulationVideoPlayer(player);
-        root->setProperty("simulationVideoSelected", true);
-        const QUrl url(QStringLiteral("udp://127.0.0.1:%1?localaddr=127.0.0.1&fifo_size=1024&overrun_nonfatal=1").arg(decoderPort));
-        player->setSource(url);
-        QObject::connect(player, &QMediaPlayer::sourceChanged, syntheticVideo.get(), [&, url](const QUrl& source) {
-            if (source != url) syntheticVideo->stop();
-        });
-        QObject::connect(syntheticVideo.get(), &rm27::video::HistoricalVideoReceiver::statsChanged,
-            &app, [&](const QVariantMap& stats) { syntheticVideoStats = stats; });
-        QObject::connect(syntheticVideo.get(), &rm27::video::HistoricalVideoReceiver::errorOccurred,
-            &app, [](const QString& error) { qWarning().noquote() << error; });
-        if (!syntheticVideo->start(static_cast<quint16>(hevcPort), decoderPort)) return 2;
-        player->play();
-        QObject::connect(&app, &QCoreApplication::aboutToQuit, syntheticVideo.get(), [&, player] {
-            syntheticVideo->stop();
-            player->stop();
-        });
-    }
+    if (syntheticHevc && !terminal.configureRm2026Video(QHostAddress::LocalHost,
+        quint16(hevcPort), QHostAddress::LocalHost, parser.value("fragment-base").toUInt(), true)) return 2;
     QTimer poll;
     QByteArray previous;
     const auto refresh = [&] {
@@ -302,7 +256,7 @@ int main(int argc, char* argv[])
             video.insert("label", terminal.videoStatusLabel());
             if (syntheticHevc) {
                 video.insert("synthetic", true);
-                video.insert("transport", QJsonObject::fromVariantMap(syntheticVideoStats));
+                video.insert("transport", QJsonObject::fromVariantMap(terminal.refereeDiagnostics().value("video").toMap().value("transport").toMap()));
             }
             report.insert("video", video);
         }
@@ -313,6 +267,17 @@ int main(int argc, char* argv[])
     QObject::connect(&poll, &QTimer::timeout, &app, refresh);
     poll.start(50);
     observer->start();
+#endif
+#if defined(RM27_UPSTREAM_BACKEND) && !defined(RM27_RM2026_LOCAL_HUD)
+    QTimer diagnostics;
+    if (parser.isSet("diagnostics-json")) {
+        QObject::connect(&diagnostics, &QTimer::timeout, &app, [&] {
+            const auto bytes = QJsonDocument(QJsonObject::fromVariantMap(terminal.refereeDiagnostics()))
+                .toJson(QJsonDocument::Compact);
+            std::cout << bytes.constData() << std::endl;
+        });
+        diagnostics.start(50);
+    }
 #endif
     return app.exec();
 }

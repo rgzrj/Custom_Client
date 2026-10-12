@@ -13,18 +13,24 @@ add_library(rm27_core
     src/core/input_mapping.cpp
     src/core/pairing_session.cpp
     src/core/video_source_policy.cpp
+    src/core/rm2026_commands.cpp
 )
 target_include_directories(rm27_core PUBLIC src)
 
 include(CTest)
+option(RM27_BUILD_APP "Build the Qt 6 operator terminal" ON)
+option(RM27_UPSTREAM_BACKEND "Include the pinned RM26_Client backend in the normal terminal" ON)
 option(RM27_BUILD_RM2026_PROBE "Build the isolated loopback-only RM2026 C++ probe" OFF)
 option(RM27_RM2026_LOCAL_HUD "Build the real QML terminal as a loopback-only historical test HUD" OFF)
-option(RM27_RM2026_VIDEO_HUD "Enable the isolated read-only RM2026 HEVC video receiver" OFF)
-if(RM27_RM2026_VIDEO_HUD AND RM27_RM2026_LOCAL_HUD)
-    message(FATAL_ERROR "Use separate builds for the video experiment and MQTT historical HUD")
+if(RM27_RM2026_VIDEO_HUD)
+    message(FATAL_ERROR "The video experiment was retired. Use the normal terminal with --hevc-udp.")
 endif()
 if(RM27_RM2026_LOCAL_HUD AND NOT RM27_BUILD_RM2026_PROBE)
     message(FATAL_ERROR "RM27_RM2026_LOCAL_HUD requires RM27_BUILD_RM2026_PROBE")
+endif()
+if(RM27_BUILD_APP AND RM27_UPSTREAM_BACKEND AND NOT RM27_RM2026_LOCAL_HUD)
+    set(RM27_HAS_UPSTREAM ON)
+    include(cmake/rm2026-dependencies.cmake)
 endif()
 if(RM27_BUILD_RM2026_PROBE)
     add_subdirectory(contracts/rm2026-v2.0.0/native)
@@ -37,7 +43,7 @@ if(BUILD_TESTING)
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_video_launcher.ps1")
         set_tests_properties(rm27_video_launcher_tests PROPERTIES TIMEOUT 15)
     endif()
-    # Historical RM2026 tests; the normal terminal does not link this reference.
+    # Strict RM2026 reassembly/synchronization shared by the native video path.
     add_executable(rm2026_video_tests tests/test_rm2026_video.cpp)
     target_link_libraries(rm2026_video_tests PRIVATE rm2026_video_reference)
     add_test(NAME rm2026_video_tests COMMAND rm2026_video_tests)
@@ -61,27 +67,23 @@ if(BUILD_TESTING)
     add_test(NAME rm27_pairing_tests COMMAND rm27_pairing_tests)
 endif()
 
-if(BUILD_TESTING OR RM27_RM2026_VIDEO_HUD OR RM27_RM2026_LOCAL_HUD)
+if(BUILD_TESTING OR RM27_UPSTREAM_BACKEND)
     add_library(rm2026_video_reference src/protocol/rm2026/video_reassembly.cpp
         src/video/hevc_sync_filter.cpp)
     target_include_directories(rm2026_video_reference PUBLIC src)
 endif()
 
-option(RM27_BUILD_APP "Build the Qt 6 operator terminal" ON)
 if(RM27_BUILD_APP)
     find_package(Qt6 6.9 COMPONENTS Network Quick QuickControls2 Multimedia REQUIRED)
     if(Qt6_FOUND)
         qt_standard_project_setup(REQUIRES 6.9)
+        if(RM27_UPSTREAM_BACKEND)
+            include(cmake/rm26-upstream.cmake)
+        endif()
 
         add_library(rm27_runtime_log src/app/runtime_log.cpp)
         target_include_directories(rm27_runtime_log PUBLIC src)
         target_link_libraries(rm27_runtime_log PUBLIC Qt6::Core)
-
-        if(RM27_RM2026_VIDEO_HUD OR RM27_RM2026_LOCAL_HUD)
-            add_library(rm2026_video_receiver src/video/historical_video_receiver.cpp
-                src/video/historical_video_receiver.hpp)
-            target_link_libraries(rm2026_video_receiver PUBLIC rm2026_video_reference Qt6::Network)
-        endif()
 
         # —— 内置机器人线稿（素材由用户提供，按原文件名一一对应）——
         # 原文件名 → 资源别名：别名用 ASCII，避开工具链与文件系统编码差异；
@@ -132,6 +134,8 @@ if(RM27_BUILD_APP)
             src/app/main.cpp
             src/app/terminal_controller.cpp
             src/app/terminal_controller.hpp
+            src/app/operator_input.cpp
+            src/app/operator_input.hpp
             src/app/connection_settings.cpp
             src/app/connection_settings.hpp
             src/sim/sim_referee_receiver.cpp
@@ -162,25 +166,18 @@ if(RM27_BUILD_APP)
             Qt6::QuickControls2
             Qt6::Multimedia
         )
+        if(RM27_HAS_UPSTREAM)
+            target_link_libraries(rm27_terminal PRIVATE rm26_upstream)
+        elseif(TARGET rm26_hevc)
+            target_link_libraries(rm27_terminal PRIVATE rm26_hevc)
+        endif()
         if(RM27_RM2026_LOCAL_HUD)
             target_compile_definitions(rm27_terminal PRIVATE RM27_RM2026_LOCAL_HUD=1)
-            target_link_libraries(rm27_terminal PRIVATE rm2026_mqtt_reference rm2026_video_receiver)
-        endif()
-        if(RM27_RM2026_VIDEO_HUD)
-            target_compile_definitions(rm27_terminal PRIVATE RM27_RM2026_VIDEO_HUD=1)
-            target_link_libraries(rm27_terminal PRIVATE rm2026_video_receiver)
+            target_link_libraries(rm27_terminal PRIVATE rm2026_mqtt_reference)
         endif()
 
         if(BUILD_TESTING)
             find_package(Qt6 REQUIRED COMPONENTS Test)
-            if(RM27_RM2026_VIDEO_HUD)
-                add_executable(rm2026_video_receiver_tests tests/test_historical_video_receiver.cpp)
-                target_link_libraries(rm2026_video_receiver_tests PRIVATE rm2026_video_receiver
-                    Qt6::Test Qt6::Multimedia Qt6::Quick)
-                add_test(NAME rm2026_video_receiver_tests COMMAND rm2026_video_receiver_tests)
-                set_tests_properties(rm2026_video_receiver_tests PROPERTIES
-                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 40)
-            endif()
             add_executable(rm27_runtime_log_tests tests/test_runtime_log.cpp)
             target_link_libraries(rm27_runtime_log_tests PRIVATE rm27_runtime_log Qt6::Test)
             add_test(NAME rm27_runtime_log_tests COMMAND rm27_runtime_log_tests)
@@ -188,6 +185,8 @@ if(RM27_BUILD_APP)
                 tests/test_video_playback.cpp
                 src/app/terminal_controller.cpp
                 src/app/terminal_controller.hpp
+                src/app/operator_input.cpp
+                src/app/operator_input.hpp
                 src/app/connection_settings.cpp
                 src/app/connection_settings.hpp
                 src/sim/sim_referee_receiver.cpp
@@ -199,6 +198,31 @@ if(RM27_BUILD_APP)
             )
             target_link_libraries(rm27_playback_tests PRIVATE rm27_core rm27_runtime_log Qt6::Test
                 Qt6::Network Qt6::Quick Qt6::QuickControls2 Qt6::Multimedia)
+            if(TARGET rm26_hevc)
+                target_link_libraries(rm27_playback_tests PRIVATE rm26_hevc)
+            endif()
+            if(RM27_HAS_UPSTREAM)
+                target_link_libraries(rm27_playback_tests PRIVATE rm26_upstream)
+                add_executable(rm26_uplink_tests tests/test_rm26_uplink.cpp)
+                target_link_libraries(rm26_uplink_tests PRIVATE rm26_upstream Qt6::Test
+                    protobuf::libprotobuf eclipse-paho-mqtt-c::paho-mqtt3c-static)
+                target_compile_definitions(rm26_uplink_tests PRIVATE RM_HAS_MQTT=1)
+                target_include_directories(rm26_uplink_tests PRIVATE
+                    "${PROJECT_SOURCE_DIR}/third_party/rm26_client/src"
+                    "${CMAKE_CURRENT_BINARY_DIR}")
+                add_test(NAME rm26_uplink_tests COMMAND rm26_uplink_tests -o -,txt)
+                set_tests_properties(rm26_uplink_tests PROPERTIES TIMEOUT 45)
+                find_package(Python3 COMPONENTS Interpreter REQUIRED)
+                if(NOT RM27_RM2026_LOCAL_HUD)
+                    add_test(NAME rm26_upstream_backend_tests COMMAND "${Python3_EXECUTABLE}"
+                        "${PROJECT_SOURCE_DIR}/tests/test_rm26_upstream.py" --exe $<TARGET_FILE:rm27_terminal>)
+                    set_tests_properties(rm26_upstream_backend_tests PROPERTIES
+                        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;PYTHONUTF8=1;RM27_TEST_HEVC=${RM27_TEST_HEVC}" TIMEOUT 90)
+                endif()
+                add_test(NAME rm26_upstream_identity_tests COMMAND rm27_playback_tests upstreamIdentityProfile)
+                set_tests_properties(rm26_upstream_identity_tests PROPERTIES
+                    ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
+            endif()
             add_test(NAME rm27_diagnostics_tests COMMAND rm27_playback_tests
                 unsupportedFormalProfile guiHeartbeatLateTick videoDiagnosticSources)
             add_test(NAME rm27_pairing_workflow_tests COMMAND rm27_playback_tests pairingWorkflow)
@@ -207,14 +231,10 @@ if(RM27_BUILD_APP)
             set_tests_properties(rm27_diagnostics_tests PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
             set(RM27_TEST_HEVC "" CACHE FILEPATH "Generated Annex-B HEVC fixture for the isolated experiment")
-            if(RM27_RM2026_VIDEO_HUD)
-                target_link_libraries(rm27_playback_tests PRIVATE rm2026_video_receiver)
-                target_compile_definitions(rm27_playback_tests PRIVATE RM27_RM2026_VIDEO_HUD=1)
-                if(EXISTS "${RM27_TEST_HEVC}")
-                    add_test(NAME rm2026_hevc_hud_tests COMMAND rm27_playback_tests historicalHevcUdp)
-                    set_tests_properties(rm2026_hevc_hud_tests PROPERTIES
-                        ENVIRONMENT "RM27_TEST_HEVC=${RM27_TEST_HEVC}" TIMEOUT 40)
-                endif()
+            if(RM27_HAS_UPSTREAM AND EXISTS "${RM27_TEST_HEVC}")
+                add_test(NAME rm26_upstream_hevc_tests COMMAND rm27_playback_tests upstreamHevcVideo)
+                set_tests_properties(rm26_upstream_hevc_tests PROPERTIES
+                    ENVIRONMENT "QT_QPA_PLATFORM=windows;RM27_TEST_HEVC=${RM27_TEST_HEVC}" TIMEOUT 25)
             endif()
             rm27_add_robot_photos(rm27_playback_tests)
             target_compile_definitions(rm27_playback_tests PRIVATE
@@ -229,6 +249,9 @@ if(RM27_BUILD_APP)
             add_test(NAME rm27_historical_hud_tests COMMAND rm27_playback_tests
                 historicalHudPresentation historicalGamePresentation)
             add_test(NAME rm27_ui_layout_tests COMMAND rm27_playback_tests uiHierarchy)
+            add_test(NAME rm27_operator_input_tests COMMAND rm27_playback_tests operatorInputLifecycle respawnShortcuts)
+            set_tests_properties(rm27_operator_input_tests PROPERTIES
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
             set_tests_properties(rm27_ui_layout_tests PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=${CMAKE_CURRENT_BINARY_DIR}/unavailable-test-fonts"
                 TIMEOUT 15)

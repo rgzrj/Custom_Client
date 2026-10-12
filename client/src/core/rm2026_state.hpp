@@ -15,10 +15,18 @@ enum class OutpostLife { Unknown, Alive, Destroyed };
 struct SelfConfig {
     std::optional<std::uint32_t> robotId, maxHealth, level;
     Team team{Team::Unknown}; // Reported identity, not authenticated login.
+    std::optional<std::uint32_t> connectionState, fieldState, aliveState;
+    std::optional<std::uint32_t> shooter, chassis; // Raw codes; no inferred robot_type enum.
+    std::optional<std::uint32_t> robotType, maxHeat, maxPower, maxBufferEnergy, maxChassisEnergy;
+    std::optional<float> heatCooldownRate; // Reported rate per second, without integer narrowing.
 };
 struct SelfDynamic {
     std::optional<std::uint32_t> health, permittedShots;
     std::optional<float> heat, lastProjectileFireRate; // No assumed unit conversion.
+    std::optional<bool> outOfCombat, canRemoteHeal, canRemoteAmmo;
+    std::optional<std::uint32_t> chassisEnergy, bufferEnergy, experience, experienceForUpgrade;
+    std::optional<std::uint32_t> totalProjectilesFired, outOfCombatCountdown;
+    // Energy is not live power; experienceForUpgrade is remaining needed experience.
 };
 struct Structure {
     std::optional<std::uint32_t> health, status, shield;
@@ -33,8 +41,46 @@ struct SideUnits {
     // Relative ally/enemy order in PDF 53; no aerial HP or invented maxima.
     std::array<RobotHealth, 5> robots{{{1, {}}, {2, {}}, {3, {}}, {4, {}}, {7, {}}}};
 };
-struct Units { SideUnits ally, enemy; };
-struct Economy { std::optional<std::uint32_t> remaining; };
+struct Units {
+    SideUnits ally, enemy;
+    std::vector<std::int32_t> robotBullets; // Raw order; no inferred health-slot/team assignment.
+    std::optional<std::uint32_t> totalDamageAlly, totalDamageEnemy;
+};
+struct Economy {
+    std::optional<std::uint32_t> remaining;
+    std::optional<std::uint64_t> totalObtained;
+    std::optional<std::uint32_t> techLevel, encryptionLevel;
+};
+enum class MechanismKind { Unknown = 0, AllyFortressOccupied, EnemyFortressOccupied };
+struct Mechanism {
+    std::uint32_t id;
+    std::int32_t timeSec; // Reported signed seconds, not a locally advancing countdown.
+    MechanismKind kind{MechanismKind::Unknown};
+};
+struct SpecialMechanisms {
+    std::vector<Mechanism> entries; // Ordered pairs, including duplicates and unknown IDs.
+};
+struct InjuryStat {
+    std::optional<std::uint32_t> totalDamage, collisionDamage, smallProjectileDamage, largeProjectileDamage;
+    std::optional<std::uint32_t> dartSplashDamage, moduleOfflineDamage, offlineDamage, penaltyDamage;
+    std::optional<std::uint32_t> serverKillDamage, killerId;
+    // Accumulated during one life; no inferred health/life state, kill event or self-ID fallback.
+};
+struct PathOffset {
+    std::int32_t x, y; // Reported increments relative to the start, not accumulated UI points.
+};
+struct PathPlan {
+    std::optional<std::uint32_t> intention, startXdm, startYdm, senderId;
+    std::vector<PathOffset> offsets; // Validated pairs; a short list is not a complete 49-pair path.
+};
+struct MapClickReport {
+    std::optional<std::uint32_t> sendAll, markingType, enemyId, ascii, markingMode;
+    std::optional<std::array<std::uint8_t, 7>> robotIds; // Recipients, including zero padding; no sender field.
+    std::optional<float> x, y; // Raw map coordinates; unit/origin and UI calibration unverified.
+};
+struct CustomBytes {
+    std::optional<std::vector<std::uint8_t>> data; // Opaque bytes; present-empty differs from absent.
+};
 enum class Phase { Unknown = -1, NotStarted = 0, Preparation, SelfCheck, Countdown, Playing, Settlement };
 struct Game {
     std::optional<std::uint32_t> currentRound, totalRounds, redScore, blueScore, stageCode;
@@ -104,6 +150,40 @@ struct Deployment {
     std::optional<std::uint32_t> code;
     DeployState state{DeployState::Unknown};
 };
+struct TechCore {
+    std::optional<std::uint32_t> maximumDifficulty, basicState, putIn, move, rotate;
+    std::optional<std::uint32_t> enemyCoreStatus, remainTimeAll, remainTimeStep;
+    // Raw values: enemy status is meaningful only with level-4 availability;
+    // times only during own level-4 assembly. No active difficulty or time unit is supplied.
+};
+struct RuneStatus {
+    std::optional<std::uint32_t> code, activatedArms;
+    std::optional<float> averageRings;
+    // Raw report: average is meaningful only while the large rune is activating.
+    // Arms are not remaining activation opportunities; no large/small flag is supplied.
+};
+enum class SentryPosture { Unknown = 0, Attack, Defense, Move };
+struct SentryStatus {
+    std::optional<std::uint32_t> postureId;
+    SentryPosture posture{SentryPosture::Unknown};
+    std::optional<bool> weakened, powered;
+};
+enum class DartTarget { Unknown = 0, Outpost, BaseFixed, BaseRandomFixed,
+    BaseRandomMoving, BaseEndMoving };
+enum class DartGate { Unknown = -1, Closed = 0, Opening, Open };
+struct DartStatus {
+    std::optional<std::uint32_t> targetId, gateCode;
+    DartTarget target{DartTarget::Unknown};
+    DartGate gate{DartGate::Unknown}; // Reported uint32, unlike DartCommand's bool open.
+    // Status is not cross-robot authority or a uniquely correlated request receipt.
+};
+struct AirSupport {
+    std::optional<std::uint32_t> status, freeTime, costCoins, targeted, shooterStatus;
+};
+struct SentryResult {
+    std::optional<std::uint32_t> commandId, resultCode;
+    // Received result report, not a uniquely correlated local request receipt.
+};
 
 template<class T> struct Received {
     T value;
@@ -115,8 +195,15 @@ struct Snapshot {
     std::optional<Received<SelfDynamic>> selfDynamic;
     std::optional<Received<Units>> units;
     std::optional<Received<Economy>> economy;
+    std::optional<Received<SpecialMechanisms>> specialMechanisms;
+    std::optional<Received<InjuryStat>> injury;
+    std::optional<Received<PathPlan>> pathPlan;
+    std::optional<Received<MapClickReport>> mapClick;
+    std::optional<Received<CustomBytes>> customBytes;
     std::optional<Received<Game>> game;
     std::optional<Received<Penalty>> penalty;
+    // Local constraint, independent of report freshness; false grants no authority.
+    bool penaltyReleaseUnverified{false};
     std::optional<Received<Modules>> modules;
     std::optional<Received<Respawn>> respawn;
     std::optional<Received<EventReport>> latestEvent;
@@ -126,6 +213,12 @@ struct Snapshot {
     std::optional<Received<BuffReport>> latestBuff;
     std::optional<Received<Performance>> performance;
     std::optional<Received<Deployment>> deployment;
+    std::optional<Received<TechCore>> techCore;
+    std::optional<Received<RuneStatus>> rune;
+    std::optional<Received<SentryStatus>> sentryStatus;
+    std::optional<Received<DartStatus>> dartStatus;
+    std::optional<Received<AirSupport>> airSupport;
+    std::optional<Received<SentryResult>> sentryResult;
 };
 
 } // namespace rm27::historical::rm2026

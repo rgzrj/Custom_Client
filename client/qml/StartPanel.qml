@@ -48,10 +48,10 @@ Item {
         panel.entered();
     }
 
-    // 离线演练入口：先写入哨兵地址，再套用配置（applyConnectionProfile 会识别哨兵段）。
+    // 由控制器停止活动链路并进入离线演练。
     function enterOffline() {
-        panel.link.enterOfflineSentinel();
-        if (!panel.backend.applyConnectionProfile())
+        panel.backend.enterOfflineDrill();
+        if (!panel.backend.offlineDrill)
             return;
         panel.entered();
     }

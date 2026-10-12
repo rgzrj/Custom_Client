@@ -28,4 +28,5 @@ For a bug, add the smallest scenario or replay that reproduces it, verify failur
 - Keep field configuration outside source control and validate it before startup.
 - Default release configuration to safe endpoints and require explicit field activation.
 - Produce a version manifest, dependency inventory, configuration checksum, test summary, and rollback artifact.
-- Append the release or workflow change to the change log section of `CLAUDE.md`.
+- Append release or workflow changes to `Edit.md` with a timestamp, paths,
+  verification and sources. Keep `CLAUDE.md` for rules, current status and tasks.

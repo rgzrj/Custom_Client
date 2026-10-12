@@ -192,11 +192,11 @@ class NativeChecks(unittest.TestCase):
         report = self.wait(lambda state: state.get("link") == "offline")
         self.assertEqual(report["fresh"], {})
         self.assertEqual(report["stale"], [])
-        self.assertEqual(report["state"], {})
+        self.assertEqual(self.reported_state(report), {})
         stream = self.connect_peer(grants=[0] * len(TOPICS))
         report = self.wait(lambda state: state.get("sessions") == 2 and state.get("link") == "subscribed")
         self.assertEqual(report["fresh"], {})
-        self.assertEqual(report["state"], {})
+        self.assertEqual(self.reported_state(report), {})
         publish(stream, "GameStatus", b"\x28\x04", mid=7, duplicate=True)
         self.assertEqual(read_packet(stream), (0x40, b"\x00\x07"))
         report = self.wait(lambda state: state.get("counts", {}).get("duplicates") == 1)
@@ -245,14 +245,14 @@ class NativeChecks(unittest.TestCase):
                 stream = self.connect_peer()
                 report = self.wait(lambda state: state.get("link") == "subscribed")
                 self.assertEqual(report["client_id"], str(robot_id))
-                self.assertEqual(report["state"], {})  # Requested ID is not a server identity report.
+                self.assertEqual(self.reported_state(report), {})  # Requested ID is not a server identity report.
                 self.send_mapped(stream, "GameStatus", b"\x28\x04")
                 stream.shutdown(socket.SHUT_RDWR)
                 stream.close()
                 self.wait(lambda state: state.get("link") == "offline")
                 stream = self.connect_peer(grants=[0] * len(TOPICS))
                 report = self.wait(lambda state: state.get("sessions") == 2)
-                self.assertEqual(report["state"], {})
+                self.assertEqual(self.reported_state(report), {})
                 stream.settimeout(0.3)
                 with self.assertRaises(socket.timeout):
                     read_packet(stream)  # CONNECT/SUBSCRIBE/PUBACK only; no PUBLISH/control.
@@ -274,11 +274,16 @@ class NativeChecks(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout.splitlines()[0])["local_only"])
 
+    def reported_state(self, report):
+        # Shared JSON includes the local constraint; this read-only observer grants no authority.
+        self.assertEqual(report["state"]["control_constraints"], {"penalty_release_unverified": False})
+        return {key: value for key, value in report["state"].items() if key != "control_constraints"}
+
     def send_mapped(self, stream, topic, payload):
         before = self.report["counts"]["accepted"]
         publish(stream, topic, payload, mid=7)
         self.assertEqual(read_packet(stream), (0x40, b"\x00\x07"))
-        return self.wait(lambda state: state.get("counts", {}).get("accepted") == before + 1)["state"]
+        return self.reported_state(self.wait(lambda state: state.get("counts", {}).get("accepted") == before + 1))
 
     def test_buff_performance_deploy_presence_and_expiry(self):
         stream = self.connect_peer()
@@ -397,7 +402,7 @@ class NativeChecks(unittest.TestCase):
         self.assertEqual(report["penalty"], {"total": 0, "kind": "unknown"})
         publish(stream, "RobotStaticStatus", b"\x20\x01")
         report = self.wait(lambda state: state.get("state", {}).get("self_config", {}).get("robot_id") == 1)
-        self.assertEqual(report["state"], {"self_config": {"robot_id": 1, "team": "red"}})
+        self.assertEqual(self.reported_state(report), {"self_config": {"robot_id": 1, "team": "red"}})
 
     def test_module_codes_presence_and_independent_expiry(self):
         stream = self.connect_peer()
@@ -538,16 +543,17 @@ class NativeChecks(unittest.TestCase):
 
     def test_domain_presence_expiry_and_identity_change(self):
         stream = self.connect_peer()
-        publish(stream, "RobotStaticStatus", b"\x20\x6b\x40\x03\x48\xe8\x07")
+        publish(stream, "RobotStaticStatus", b"\x20\x6b\x40\x03\x48\xe8\x07\x5d" + struct.pack("<f", 1.25))
         self.wait(lambda state: state.get("state", {}).get("self_config", {}).get("robot_id") == 107)
         publish(stream, "GlobalUnitStatus", b"\x08\x00\x20\x00\x28\x03\x30\x14\x50\x00\x5a\x0a" + bytes(range(10, 20)))
-        dynamic = b"\x08\x00\x15" + struct.pack("<f", 0) + b"\x1d" + struct.pack("<f", 24) + b"\x48\x50"
+        dynamic = b"\x08\x00\x15" + struct.pack("<f", 0) + b"\x1d" + struct.pack("<f", 24) + b"\x48\x50\x28\x00\x58\x00"
         publish(stream, "RobotDynamicStatus", dynamic)
-        publish(stream, "GlobalLogisticsStatus", b"\x08\x00")
+        publish(stream, "GlobalLogisticsStatus", b"\x08\x00\x10" + b"\xff"*9 + b"\x01")
         report = self.wait(lambda state: "economy" in state.get("state", {}))["state"]
-        self.assertEqual(report["self_config"], {"robot_id": 107, "team": "blue", "level": 3, "max_health": 1000})
-        self.assertEqual(report["self_dynamic"], {"health": 0, "heat": 0, "last_projectile_fire_rate": 24, "permitted_shots": 80})
-        self.assertEqual(report["economy"], {"remaining": 0})
+        self.assertEqual(report["self_config"], {"robot_id": 107, "team": "blue", "level": 3, "max_health": 1000, "heat_cooldown_rate": 1.25})
+        self.assertEqual(report["self_dynamic"], {"health": 0, "heat": 0, "last_projectile_fire_rate": 24,
+            "permitted_shots": 80, "buffer_energy": 0, "out_of_combat_countdown": 0})
+        self.assertEqual(report["economy"], {"remaining": 0, "total_obtained": "18446744073709551615"})
         self.assertEqual(report["units"]["ally"]["base"], {"health": 0})
         self.assertEqual(report["units"]["enemy"]["base"], {"health": 20})
         self.assertEqual(report["units"]["ally"]["outpost"]["life"], "destroyed")
@@ -558,11 +564,11 @@ class NativeChecks(unittest.TestCase):
         publish(stream, "RobotDynamicStatus", b"\x48\x00")
         self.wait(lambda state: state.get("state", {}).get("self_dynamic") == {"permitted_shots": 0})
         report = self.wait(lambda state: "RobotStaticStatus" in state.get("stale", []) and
-                           set(state.get("state", {})) == {"self_dynamic"})
+                           set(state.get("state", {})) == {"self_dynamic", "control_constraints"})
         self.assertEqual(report["state"]["self_dynamic"], {"permitted_shots": 0})
         publish(stream, "RobotStaticStatus", b"\x20\x01")
         report = self.wait(lambda state: state.get("state", {}).get("self_config", {}).get("robot_id") == 1)
-        self.assertEqual(report["state"], {"self_config": {"robot_id": 1, "team": "red"}})
+        self.assertEqual(self.reported_state(report), {"self_config": {"robot_id": 1, "team": "red"}})
         self.assertEqual(set(report["fresh"]), {"RobotStaticStatus"})
         publish(stream, "RobotStaticStatus", b"\x48\x64")  # Missing ID must not inherit red.
         self.wait(lambda state: state.get("state", {}).get("self_config") == {"max_health": 100, "team": "unknown"})

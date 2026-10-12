@@ -14,7 +14,7 @@ Keep implementation decisions traceable to official material while the 2027 rule
 3. Record the exact document, section, and PDF page for confirmed or provisional claims.
 4. Treat newer official documents as authoritative over older documents and community repositories.
 5. When a rule change affects code, identify the impacted protocol, state, UI, simulator, and test paths before editing.
-6. Append the completed change set to the change log section of `CLAUDE.md`.
+6. Append the completed change set to `Edit.md`; keep `CLAUDE.md` for rules, current status and tasks.
 
 ## Hard boundaries
 

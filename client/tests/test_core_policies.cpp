@@ -48,10 +48,15 @@ void inputMappingChecks()
         assert(findInputAction(action.id) == &action);
         for (std::size_t other = index + 1; other < actions.size(); ++other) {
             assert(actions[other].id != action.id);
+            assert(actions[other].defaultKeys != action.defaultKeys);
         }
     }
 
-    assert(findInputAction("panel.start") != nullptr);
+    assert(findInputAction("panel.start")->defaultKeys == "F1");
+    assert(findInputAction("event.freeRespawn")->defaultKeys == "Y");
+    assert(findInputAction("event.paidRespawn")->defaultKeys == "Shift+F1");
+    assert(findInputAction("event.freeRespawn")->refereeCommand);
+    assert(findInputAction("event.paidRespawn")->refereeCommand);
     assert(findInputAction("no.such.action") == nullptr);
 
     // 「标题即快捷键表」：提示由映射生成。

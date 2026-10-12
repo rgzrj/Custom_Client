@@ -36,4 +36,4 @@ Read [references/ui-and-architecture.md](references/ui-and-architecture.md) for 
 
 ## Completion checks
 
-Verify keyboard-only operation, wired-controller disconnect, window resize, 16:9 layouts, high-DPI scaling, missing video, stale data, partial connection, and manual mode switching. Record the completed change in the change log section of `CLAUDE.md`.
+Verify keyboard-only operation, wired-controller disconnect, window resize, 16:9 layouts, high-DPI scaling, missing video, stale data, partial connection, and manual mode switching. Record the completed change in `Edit.md`; keep `CLAUDE.md` for rules, current status and tasks.

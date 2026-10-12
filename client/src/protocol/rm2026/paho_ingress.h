@@ -1,5 +1,5 @@
 /* Project-local guards injected into the pinned historical Paho packet factory.
- * Not a general MQTT client: only this read-only MQTT 3.1.1 profile is accepted.
+ * Not a general MQTT client: only this bounded MQTT 3.1.1 profile is accepted.
  * Called under Paho's receive mutex; no GUI work or new packet queue.
  */
 #ifndef RM2026_PAHO_INGRESS_H
@@ -10,6 +10,7 @@ static int rm2026_header_allowed(unsigned char header, size_t length)
 {
     if (header == 0x20) return length == 2; /* CONNACK */
     if (header == 0x90) return length == 3; /* One-topic SUBACK */
+    if (header == 0x40) return length == 2; /* QoS1 uplink PUBACK */
     if (header == 0xd0) return length == 0; /* PINGRESP */
     return (header >> 4) == 3 && ((header >> 1) & 3) <= 1
         && length >= 3 && length <= 65536 + 64 + 4;
@@ -32,6 +33,8 @@ static int rm2026_body_allowed(unsigned char header, const char* data, size_t le
     } else if (header == 0x90) {
         if ((data[0] == 0 && data[1] == 0)
             || ((unsigned char)data[2] > 2 && (unsigned char)data[2] != 0x80)) return 0;
+    } else if (header == 0x40) {
+        if (data[0] == 0 && data[1] == 0) return 0; /* Packet identifiers are nonzero. */
     }
     return 1;
 }

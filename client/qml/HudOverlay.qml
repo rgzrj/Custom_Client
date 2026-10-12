@@ -31,7 +31,7 @@ Item {
     // 两者都没有则为 -1（不排除任何一格、左下角显示待确认）。
     readonly property int selfIndex: fresh && hudData.selfIndex !== undefined
                                      ? Number(hudData.selfIndex)
-                                     : backend.historicalLocal
+                                     : backend.historicalLocal || backend.upstreamData
                                          ? -1 : photos.indexOf(backend.ownRobotPreference)
     // 选手画面面板是否展开：界面占用闸门需要知道它正在占屏。
     readonly property bool cameraExpanded: camera.expanded
@@ -390,7 +390,8 @@ Item {
                     Label { Layout.alignment: Qt.AlignVCenter; text: "机器人"; color: "#57DAEA"; font.pixelSize: theme.fsMicro; font.letterSpacing: 1 }
                     Label {
                         Layout.alignment: Qt.AlignVCenter
-                        text: hud.backend.historicalLocal ? "历史测试事件" : "项目模拟消息"
+                        text: hud.backend.upstreamData ? hud.backend.protocolTestSource ? "本机测试事件" : "赛事事件"
+                            : hud.backend.historicalLocal ? "历史测试事件" : "项目模拟消息"
                         color: theme.textFaint; font.pixelSize: theme.fsMicro; font.letterSpacing: 1
                     }
                 }
@@ -807,7 +808,8 @@ Item {
             }
             Label {
                 text: "装甲状态" + (hud.fresh
-                    ? hud.backend.historicalLocal ? " · 历史只读遥测" : " · 模拟遥测" : " · 无有效数据")
+                    ? hud.backend.upstreamData ? hud.backend.protocolTestSource ? " · 测试遥测" : " · 裁判遥测"
+                        : hud.backend.historicalLocal ? " · 历史只读遥测" : " · 模拟遥测" : " · 无有效数据")
                 color: theme.textSecondary
                 font.pixelSize: theme.fsLabel
             }

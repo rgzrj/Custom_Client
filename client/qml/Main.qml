@@ -13,8 +13,9 @@ ApplicationWindow {
     minimumWidth: 1180
     minimumHeight: 680
     visible: true
-    title: root.backend.historicalVideo ? "RM2026 HEVC 图传实验 · 只读 HUD"
-        : root.backend.historicalLocal ? "RM2026 本机合成测试 · 只读 HUD" : "RM2027 重装操作终端"
+    title: root.backend.historicalLocal ? "RM2026 本机合成测试 · 只读 HUD"
+        : root.backend.upstreamData ? root.backend.protocolTestSource
+            ? "RM2026 本机协议测试" : "RM2026 自定义终端" : "RM2027 重装操作终端"
     color: theme.ink
 
     Theme { id: theme }
@@ -41,7 +42,7 @@ ApplicationWindow {
     // 顶部状态圆点：只有告警才用红色，其次是链路新鲜度
     readonly property color stateDot: root.backend.alertCritical ? theme.danger
         : root.backend.refereeFresh ? theme.ok : theme.amber
-    readonly property bool hasVideo: root.localVideoSelected || root.simulationVideoSelected
+    readonly property bool hasVideo: root.localVideoSelected || root.simulationVideoSelected || root.backend.upstreamVideoActive
     // 底部浮层的上沿（窗口坐标）：本地回放时包含回放条与其上方 24px 的收起把手。
     readonly property real bottomChromeTop: root.localVideoSelected
         ? Math.min(root.height - 52, playbackDockToggle.y)
@@ -118,6 +119,7 @@ ApplicationWindow {
     }
     Component.onCompleted: {
         root.backend.observeVideoSink(videoOutput.videoSink);
+        root.backend.observeInputWindow(root);
         root.syncUiOccupied();
         if (startupSimUdpVideo)
             openSimulationUdpVideo();
@@ -170,8 +172,30 @@ ApplicationWindow {
         sequence: root.actionKeys("mode.toggleCustomClient")
         onActivated: root.backend.submitInputAction("mode.toggleCustomClient")
     }
+    Shortcut {
+        objectName: "freeRespawnShortcut"
+        sequence: root.actionKeys("event.freeRespawn")
+        enabled: !root.backend.uiOccupied
+        autoRepeat: false
+        onActivated: root.backend.submitInputAction("event.freeRespawn")
+    }
+    Shortcut {
+        objectName: "paidRespawnShortcut"
+        sequence: root.actionKeys("event.paidRespawn")
+        enabled: !root.backend.uiOccupied
+        autoRepeat: false
+        onActivated: root.backend.submitInputAction("event.paidRespawn")
+    }
     Connections {
         target: root.backend
+        function onStateChanged() {
+            if (root.backend.upstreamVideoActive && player.source.toString().length > 0) {
+                player.stop();
+                player.source = "";
+                root.localVideoSelected = false;
+                root.simulationVideoSelected = false;
+            }
+        }
         function onInputActionRequested(actionId) {
             if (actionId === "panel.start")
                 root.reopenStartPanel();
@@ -197,6 +221,15 @@ ApplicationWindow {
                 root.openSimulationUdpVideo();
         }
         function onConnectionProfileApplied() {
+            if (root.backend.upstreamData && !root.backend.offlineDrill) {
+                if (root.localVideoSelected || root.simulationVideoSelected) {
+                    player.stop();
+                    player.source = "";
+                    root.localVideoSelected = false;
+                    root.simulationVideoSelected = false;
+                }
+                return;
+            }
             // 参数应用会重置后台链路；与仍选中的画面来源重新同步。
             if (root.simulationVideoSelected)
                 root.openSimulationUdpVideo();
@@ -296,7 +329,7 @@ ApplicationWindow {
             anchors.fill: parent
             fillMode: VideoOutput.PreserveAspectFit
             endOfStreamPolicy: VideoOutput.KeepLastFrame
-            visible: root.localVideoSelected || root.simulationVideoSelected
+            visible: root.hasVideo
         }
         HudOverlay {
             id: hudLayer
@@ -310,7 +343,7 @@ ApplicationWindow {
             topShift: topStrip.y
             ownTeam: root.backend.refereeFresh
                 ? (root.backend.hudSnapshot.ownTeam || "unknown")
-                : root.backend.historicalLocal
+                : root.backend.historicalLocal || root.backend.upstreamData
                     ? "unknown" : root.backend.ownTeamPreference
             bottomInset: 52 + (root.localVideoSelected ? playbackDock.height : 0)
             bottomClearance: root.bottomChromeTop
@@ -347,9 +380,10 @@ ApplicationWindow {
             // 让开圆弧下端的偏航刻度条。
             anchors.verticalCenterOffset: 230
             visible: !root.hasVideo || player.error !== MediaPlayer.NoError
+                     || (root.backend.upstreamVideoActive && !root.backend.videoConnected)
                      || (root.simulationVideoSelected && root.backend.decodedFrames === 0)
             text: player.error !== MediaPlayer.NoError ? "播放失败：" + player.errorString
-                  : root.simulationVideoSelected ? root.backend.videoStatusLabel
+                  : (root.simulationVideoSelected || root.backend.upstreamVideoActive) ? root.backend.videoStatusLabel
                   : "尚未选择画面\n从启动面板选择本机图传或本地回放"
             width: parent.width * 0.4
             wrapMode: Text.Wrap
@@ -439,7 +473,7 @@ ApplicationWindow {
                     Layout.alignment: Qt.AlignVCenter
                     label: "裁判"
                     value: root.backend.refereeFresh
-                        ? root.backend.historicalLocal ? "测试新鲜" : "实时" : "离线 / 过期"
+                        ? root.backend.historicalLocal || root.backend.protocolTestSource ? "测试新鲜" : "实时" : "离线 / 过期"
                     valueColor: root.backend.refereeFresh ? theme.ok : theme.amber
                 }
                 Rectangle {
@@ -510,7 +544,7 @@ ApplicationWindow {
             id: videoStateChip
             visible: root.hasVideo && player.error === MediaPlayer.NoError
                      && !(root.simulationVideoSelected && root.backend.decodedFrames === 0)
-            readonly property bool stale: root.simulationVideoSelected
+            readonly property bool stale: (root.simulationVideoSelected || root.backend.upstreamVideoActive)
                                          && root.backend.videoStale
             anchors.horizontalCenter: parent.horizontalCenter
             // 紧凑队伍栏之下，不与无画面提示重复。
@@ -526,8 +560,9 @@ ApplicationWindow {
                 id: videoStateText
                 objectName: "videoStateText"
                 anchors.centerIn: parent
-                text: root.simulationVideoSelected ? root.backend.videoStatusLabel
-                            + (root.backend.historicalVideo ? " · HEVC 实验" : " · 非官方分包格式")
+                text: root.backend.upstreamVideoActive ? root.backend.videoStatusLabel
+                      : root.simulationVideoSelected ? root.backend.videoStatusLabel
+                            + " · 非官方分包格式"
                             + (videoStateChip.stale && root.backend.decodedFrames > 0 ? " · 旧帧非实时" : "")
                       : root.localVideoSelected ? "本地回放 · " + root.playbackLabel + " · 非实时图传"
                       : ""

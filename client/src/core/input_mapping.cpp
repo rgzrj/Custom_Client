@@ -15,6 +15,9 @@ const std::vector<InputAction>& defaultInputActions() noexcept
         {"controls.toggleArmed", "解锁 / 锁定控制", "控制", "F2", CommandKind::RobotMotion},
         {"gate.inspectMotion", "检查指令门", "控制", "F3", CommandKind::RobotMotion},
         {"mode.toggleCustomClient", "切换自定义客户端", "控制", "F4", CommandKind::EventOperation},
+        {"event.freeRespawn", "请求免费复活", "赛事", "Y", CommandKind::EventOperation, true},
+        // F1 retains the existing start panel; paid shortcut is a project decision.
+        {"event.paidRespawn", "请求付费复活", "赛事", "Shift+F1", CommandKind::EventOperation, true},
     };
     return actions;
 }

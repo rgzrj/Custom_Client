@@ -1,0 +1,3407 @@
+{
+  "protocol": "rm2026-v2.0.0",
+  "official_pdf": "RoboMaster 2026 机甲大师高校系列赛通信协议 V2.0.0（20260626）.pdf",
+  "upstream_repository": "https://github.com/ClearWei/RM26_Client",
+  "upstream_commit": "e291f2f65f5a5924509e4e2fe1b148ff9d4b24af",
+  "source_sha256": {
+    "LICENSE": "a0bf61b72dd3966daf921906256b5f7b1c79de9181c27eab3dfaa151541eb5a4",
+    "src/network/proto/robomaster.proto": "275ff79249557cf3c46defc0f28baeb1661bf9e654083022279e3fe5c98fd7a2",
+    "src/network/MqttManager.cpp": "3deefa009f755553b7f0ae1a479c6ebc44138b55736e5f773b27a21976a5fa52",
+    "src/network/NetworkManager.cpp": "6659c33b5d1c19affd4d69ca28b5271a5d2ab02af44eb6c19ecd23f786320e6b",
+    "src/core/GameData.cpp": "c2d620323053f6589fc6c6505676d3f2b85ee03a8453b28e50976e7cc39e4d04"
+  },
+  "verified_messages": 35,
+  "zero_presence_wire_checks": 165,
+  "upstream_subscription_count": 26,
+  "upstream_distinct_subscription_count": 25,
+  "upstream_extra_subscriptions": [
+    "CustomRobotData"
+  ],
+  "topics": [
+    {
+      "topic": "KeyboardMouseControl",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "75Hz",
+      "official_section": "2.2.1",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "mouse_x",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "mouse_y",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "mouse_z",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "left_button_down",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "right_button_down",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "keyboard_value",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "mid_button_down",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "mouse_x",
+          "type": "int32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "mouse_y",
+          "type": "int32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "mouse_z",
+          "type": "int32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "left_button_down",
+          "type": "bool",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "right_button_down",
+          "type": "bool",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "keyboard_value",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 7,
+          "name": "mid_button_down",
+          "type": "bool",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "mouse_x",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "mouse_y",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "mouse_z",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "left_button_down",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "right_button_down",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "keyboard_value",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "mid_button_down",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "CustomControl",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "75Hz; <=30 bytes",
+      "official_section": "2.2.2",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "data",
+          "type": "bytes",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "data",
+          "type": "bytes",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "data",
+          "type": "bytes",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "GameStatus",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "5Hz",
+      "official_section": "2.2.3",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "current_round",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "total_rounds",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "red_score",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "blue_score",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "current_stage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "stage_countdown_sec",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "stage_elapsed_sec",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "is_paused",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "game_result",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "end_reason",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "current_round",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "total_rounds",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "red_score",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "blue_score",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "current_stage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "stage_countdown_sec",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "stage_elapsed_sec",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "is_paused",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "game_result",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "end_reason",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "GlobalUnitStatus",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.4",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "base_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "base_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "base_shield",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "outpost_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "outpost_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "enemy_base_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "enemy_base_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "enemy_base_shield",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "enemy_outpost_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "enemy_outpost_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 11,
+          "name": "robot_health",
+          "type": "uint32",
+          "presence": "repeated"
+        },
+        {
+          "number": 12,
+          "name": "robot_bullets",
+          "type": "int32",
+          "presence": "repeated"
+        },
+        {
+          "number": 13,
+          "name": "total_damage_ally",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 14,
+          "name": "total_damage_enemy",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "base_health",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "base_status",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "base_shield",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "outpost_health",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "outpost_status",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "enemy_base_health",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 7,
+          "name": "enemy_base_status",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 8,
+          "name": "enemy_base_shield",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 9,
+          "name": "enemy_outpost_health",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 10,
+          "name": "enemy_outpost_status",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 11,
+          "name": "robot_health",
+          "type": "uint32",
+          "presence": "repeated"
+        },
+        {
+          "number": 12,
+          "name": "robot_bullets",
+          "type": "int32",
+          "presence": "repeated"
+        },
+        {
+          "number": 13,
+          "name": "total_damage_ally",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 14,
+          "name": "total_damage_enemy",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "base_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "base_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "base_shield",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "outpost_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "outpost_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "enemy_base_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "enemy_base_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "enemy_base_shield",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "enemy_outpost_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "enemy_outpost_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 13,
+          "name": "total_damage_ally",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 14,
+          "name": "total_damage_enemy",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "GlobalLogisticsStatus",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.5",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "remaining_economy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "total_economy_obtained",
+          "type": "uint64",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "tech_level",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "encryption_level",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "remaining_economy",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "total_economy_obtained",
+          "type": "uint64",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "tech_level",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "encryption_level",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "remaining_economy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "total_economy_obtained",
+          "type": "uint64",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "tech_level",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "encryption_level",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "GlobalSpecialMechanism",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.6",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "mechanism_id",
+          "type": "uint32",
+          "presence": "repeated"
+        },
+        {
+          "number": 2,
+          "name": "mechanism_time_sec",
+          "type": "int32",
+          "presence": "repeated"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "mechanism_id",
+          "type": "uint32",
+          "presence": "repeated"
+        },
+        {
+          "number": 2,
+          "name": "mechanism_time_sec",
+          "type": "int32",
+          "presence": "repeated"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "Event",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "trigger",
+      "official_section": "2.2.7",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "event_id",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "param",
+          "type": "string",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "event_id",
+          "type": "int32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "param",
+          "type": "string",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "event_id",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "param",
+          "type": "string",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotInjuryStat",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.8",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "total_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "collision_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "small_projectile_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "large_projectile_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "dart_splash_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "module_offline_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "offline_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "penalty_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "server_kill_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "killer_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "total_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "collision_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "small_projectile_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "large_projectile_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "dart_splash_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "module_offline_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 7,
+          "name": "offline_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 8,
+          "name": "penalty_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 9,
+          "name": "server_kill_damage",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 10,
+          "name": "killer_id",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "total_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "collision_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "small_projectile_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "large_projectile_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "dart_splash_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "module_offline_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "offline_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "penalty_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "server_kill_damage",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "killer_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotRespawnStatus",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.9",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "is_pending_respawn",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "total_respawn_progress",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "current_respawn_progress",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "can_free_respawn",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "gold_cost_for_respawn",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "can_pay_for_respawn",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "is_pending_respawn",
+          "type": "bool",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "total_respawn_progress",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "current_respawn_progress",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "can_free_respawn",
+          "type": "bool",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "gold_cost_for_respawn",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "can_pay_for_respawn",
+          "type": "bool",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "is_pending_respawn",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "total_respawn_progress",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "current_respawn_progress",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "can_free_respawn",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "gold_cost_for_respawn",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "can_pay_for_respawn",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotStaticStatus",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.10",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "connection_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "field_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "alive_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "robot_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "performance_system_shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "performance_system_chassis",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "level",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "max_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "max_heat",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 11,
+          "name": "heat_cooldown_rate",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 12,
+          "name": "max_power",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 13,
+          "name": "max_buffer_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 14,
+          "name": "max_chassis_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "connection_state",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "field_state",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "alive_state",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "robot_type",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "performance_system_shooter",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 7,
+          "name": "performance_system_chassis",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 8,
+          "name": "level",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 9,
+          "name": "max_health",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 10,
+          "name": "max_heat",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 11,
+          "name": "heat_cooldown_rate",
+          "type": "float",
+          "presence": "implicit"
+        },
+        {
+          "number": 12,
+          "name": "max_power",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 13,
+          "name": "max_buffer_energy",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 14,
+          "name": "max_chassis_energy",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "connection_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "field_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "alive_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "robot_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "performance_system_shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "performance_system_chassis",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "level",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "max_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "max_heat",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 11,
+          "name": "heat_cooldown_rate",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 12,
+          "name": "max_power",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 13,
+          "name": "max_buffer_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 14,
+          "name": "max_chassis_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotDynamicStatus",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "10Hz",
+      "official_section": "2.2.11",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "current_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "current_heat",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "last_projectile_fire_rate",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "current_chassis_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "current_buffer_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "current_experience",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "experience_for_upgrade",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "total_projectiles_fired",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "remaining_ammo",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "is_out_of_combat",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 11,
+          "name": "out_of_combat_countdown",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 12,
+          "name": "can_remote_heal",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 13,
+          "name": "can_remote_ammo",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "current_health",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "current_heat",
+          "type": "float",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "last_projectile_fire_rate",
+          "type": "float",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "current_chassis_energy",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "current_buffer_energy",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "current_experience",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 7,
+          "name": "experience_for_upgrade",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 8,
+          "name": "total_projectiles_fired",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 9,
+          "name": "remaining_ammo",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 10,
+          "name": "is_out_of_combat",
+          "type": "bool",
+          "presence": "implicit"
+        },
+        {
+          "number": 11,
+          "name": "out_of_combat_countdown",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 12,
+          "name": "can_remote_heal",
+          "type": "bool",
+          "presence": "implicit"
+        },
+        {
+          "number": 13,
+          "name": "can_remote_ammo",
+          "type": "bool",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "current_health",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "current_heat",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "last_projectile_fire_rate",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "current_chassis_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "current_buffer_energy",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "current_experience",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "experience_for_upgrade",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "total_projectiles_fired",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "remaining_ammo",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "is_out_of_combat",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 11,
+          "name": "out_of_combat_countdown",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 12,
+          "name": "can_remote_heal",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 13,
+          "name": "can_remote_ammo",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotModuleStatus",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.12",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "power_manager",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "rfid",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "light_strip",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "small_shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "big_shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "uwb",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "armor",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "video_transmission",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "capacitor",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "main_controller",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 11,
+          "name": "laser_detection_module",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "power_manager",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "rfid",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "light_strip",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "small_shooter",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "big_shooter",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "uwb",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 7,
+          "name": "armor",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 8,
+          "name": "video_transmission",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 9,
+          "name": "capacitor",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 10,
+          "name": "main_controller",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 11,
+          "name": "laser_detection_module",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "power_manager",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "rfid",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "light_strip",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "small_shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "big_shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "uwb",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "armor",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "video_transmission",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 9,
+          "name": "capacitor",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 10,
+          "name": "main_controller",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 11,
+          "name": "laser_detection_module",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotPosition",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.13",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "x",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "y",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "z",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "yaw",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "x",
+          "type": "float",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "y",
+          "type": "float",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "z",
+          "type": "float",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "yaw",
+          "type": "float",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "x",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "y",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "z",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "yaw",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "Buff",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "trigger, then 1Hz until lost",
+      "official_section": "2.2.14",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "buff_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "buff_level",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "buff_max_time",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "buff_left_time",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "robot_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "buff_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "buff_level",
+          "type": "int32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "buff_max_time",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "buff_left_time",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "PenaltyInfo",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "trigger",
+      "official_section": "2.2.15",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "penalty_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "penalty_effect_sec",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "total_penalty_num",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "penalty_type",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "penalty_effect_sec",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "total_penalty_num",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "penalty_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "penalty_effect_sec",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "total_penalty_num",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotPathPlanInfo",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "trigger",
+      "official_section": "2.2.16",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "intention",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "start_pos_x",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "start_pos_y",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "offset_x",
+          "type": "int32",
+          "presence": "repeated"
+        },
+        {
+          "number": 5,
+          "name": "offset_y",
+          "type": "int32",
+          "presence": "repeated"
+        },
+        {
+          "number": 6,
+          "name": "sender_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "intention",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "start_pos_x",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "start_pos_y",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "offset_x",
+          "type": "int32",
+          "presence": "repeated"
+        },
+        {
+          "number": 5,
+          "name": "offset_y",
+          "type": "int32",
+          "presence": "repeated"
+        },
+        {
+          "number": 6,
+          "name": "sender_id",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "intention",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "start_pos_x",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "start_pos_y",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "sender_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "MapClickInfo",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "trigger; section 1.3.1",
+      "official_section": "2.2.17",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "is_send_all",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "robot_id",
+          "type": "bytes",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "mode",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "enemy_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "ascii",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "map_x",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "map_y",
+          "type": "float",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": null,
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "is_send_all",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "robot_id",
+          "type": "bytes",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "mode",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "enemy_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "ascii",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "map_x",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "map_y",
+          "type": "float",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "MapClickCmd",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "section 1.3.1: >=0.5s gunner; >=3s semi-auto operator",
+      "official_section": "2.2.18",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "is_send_all",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "robot_id",
+          "type": "bytes",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "mode",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "enemy_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "ascii",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "map_x",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "map_y",
+          "type": "float",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": null,
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "is_send_all",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "robot_id",
+          "type": "bytes",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "mode",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "enemy_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "ascii",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "map_x",
+          "type": "float",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "map_y",
+          "type": "float",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RadarInfoToClient",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "trigger",
+      "official_section": "2.2.19",
+      "canonical_fields": null,
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "robot_info",
+          "type": "message",
+          "presence": "repeated"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [],
+      "status": "blocked: ambiguous official Radar outer field"
+    },
+    {
+      "topic": "CustomByteBlock",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "50Hz; <=300 bytes",
+      "official_section": "2.2.20",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "data",
+          "type": "bytes",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "data",
+          "type": "bytes",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "data",
+          "type": "bytes",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "AssemblyCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "<=10Hz",
+      "official_section": "2.2.21",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "operation",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "difficulty",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "operation",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "difficulty",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "TechCoreMotionStateSync",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.22",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "maximum_difficulty_level",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "basic_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "putin_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "move_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "rotate_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "enemy_core_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "remain_time_all",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "remain_time_step",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "maximum_difficulty_level",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "basic_state",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "putin_state",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "move_state",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "rotate_state",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 6,
+          "name": "enemy_core_status",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 7,
+          "name": "remain_time_all",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 8,
+          "name": "remain_time_step",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "maximum_difficulty_level",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "basic_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "putin_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "move_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "rotate_state",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 6,
+          "name": "enemy_core_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 7,
+          "name": "remain_time_all",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 8,
+          "name": "remain_time_step",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotPerformanceSelectionCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "<=10Hz",
+      "official_section": "2.2.23",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "chassis",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "sentry_control",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "shooter",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "chassis",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "sentry_control",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "chassis",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "sentry_control",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RobotPerformanceSelectionSync",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.24",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "chassis",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "sentry_control",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "shooter",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "chassis",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "sentry_control",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "shooter",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "chassis",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "sentry_control",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "CommonCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "<=10Hz",
+      "official_section": "2.2.25",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "cmd_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "param",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "cmd_type",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "param",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "cmd_type",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "param",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "HeroDeployModeEventCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "<=10Hz",
+      "official_section": "2.2.26",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "mode",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "mode",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "DeployModeStatusSync",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.27",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "status",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "status",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": true,
+      "differences": [
+        {
+          "number": 1,
+          "name": "status",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RuneActivateCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "<=10Hz",
+      "official_section": "2.2.28",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "activate",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "activate",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "activate",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "RuneStatusSync",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.29",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "rune_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "activated_arms",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "average_rings",
+          "type": "float",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "rune_status",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "activated_arms",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "average_rings",
+          "type": "float",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "rune_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "activated_arms",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "average_rings",
+          "type": "float",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "SentryStatusSync",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.30",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "posture_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "is_weakened",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "is_powered",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "posture_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "is_weakened",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "is_powered",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "DartCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "<=10Hz",
+      "official_section": "2.2.31",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "target_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "open",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "launch_confirm",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "target_id",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "open",
+          "type": "bool",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "launch_confirm",
+          "type": "bool",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "target_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "open",
+          "type": "bool",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "launch_confirm",
+          "type": "bool",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "DartSelectTargetStatusSync",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.32",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "target_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "open",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "target_id",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "open",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "target_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "open",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "SentryCtrlCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "<=10Hz",
+      "official_section": "2.2.33",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "SentryCtrlResult",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "trigger",
+      "official_section": "2.2.34",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "result_code",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "result_code",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "result_code",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "AirSupportCommand",
+      "direction": "up",
+      "highest_qos": 1,
+      "frequency": "trigger; no numeric ceiling in section 2.1",
+      "official_section": "2.2.35",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "command_id",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_subscribed": false,
+      "current_observer": false,
+      "differences": [],
+      "status": "schema verified; runtime acceptance pending"
+    },
+    {
+      "topic": "AirSupportStatusSync",
+      "direction": "down",
+      "highest_qos": 1,
+      "frequency": "1Hz",
+      "official_section": "2.2.36",
+      "canonical_fields": [
+        {
+          "number": 1,
+          "name": "airsupport_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "left_time",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "cost_coins",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "is_being_targeted",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "shooter_status",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "upstream_fields": [
+        {
+          "number": 1,
+          "name": "airsupport_status",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 2,
+          "name": "left_time",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 3,
+          "name": "cost_coins",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 4,
+          "name": "is_being_targeted",
+          "type": "uint32",
+          "presence": "implicit"
+        },
+        {
+          "number": 5,
+          "name": "shooter_status",
+          "type": "uint32",
+          "presence": "implicit"
+        }
+      ],
+      "upstream_subscribed": true,
+      "current_observer": false,
+      "differences": [
+        {
+          "number": 1,
+          "name": "airsupport_status",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 2,
+          "name": "left_time",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 3,
+          "name": "cost_coins",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 4,
+          "name": "is_being_targeted",
+          "type": "uint32",
+          "presence": "explicit"
+        },
+        {
+          "number": 5,
+          "name": "shooter_status",
+          "type": "uint32",
+          "presence": "explicit"
+        }
+      ],
+      "status": "schema verified; runtime acceptance pending"
+    }
+  ]
+}

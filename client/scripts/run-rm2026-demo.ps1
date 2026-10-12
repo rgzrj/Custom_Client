@@ -25,8 +25,7 @@ if (-not $Executable) {
         $buildDirectory = Join-Path $projectDirectory 'build-rm2026-native'
         & $tools.cmake -S $projectDirectory -B $buildDirectory -G Ninja `
             -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$($tools.qtPrefix)" `
-            -DRM27_BUILD_APP=ON -DRM27_BUILD_RM2026_PROBE=ON -DRM27_RM2026_LOCAL_HUD=ON `
-            -DRM27_RM2026_VIDEO_HUD=OFF `
+            -DRM27_BUILD_APP=ON -DRM27_BUILD_RM2026_PROBE=ON -DRM27_RM2026_LOCAL_HUD=ON -DRM27_UPSTREAM_BACKEND=ON `
             '-DRM2026_PROTOC=D:/YOLOV8/Library/bin/protoc.exe'
         if ($LASTEXITCODE -ne 0) { throw 'Historical HUD configuration failed.' }
         & $tools.cmake --build $buildDirectory --target rm27_terminal --parallel 4

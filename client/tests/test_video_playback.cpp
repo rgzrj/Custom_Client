@@ -31,14 +31,14 @@
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QThread>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QWheelEvent>
+#include <QtEndian>
 #include <cmath>
 #include "app/terminal_controller.hpp"
 #include "app/runtime_log.hpp"
 #include "video/udp_video_ingress.hpp"
-#ifdef RM27_RM2026_VIDEO_HUD
-#include "video/historical_video_receiver.hpp"
-#include <QtEndian>
-#endif
 
 quint16 testRefereePort = 0;
 quint16 testVideoProbePort = 0;
@@ -99,6 +99,271 @@ class PlaybackTest : public QObject {
     }
 
 private slots:
+    void operatorInputLifecycle()
+    {
+        rm27::app::OperatorInput input;
+        QWindow window;
+        input.observe(&window);
+        QEvent activate(QEvent::WindowActivate);
+        QCoreApplication::sendEvent(&window, &activate);
+        input.setEnabled(true);
+        QVERIFY(input.enabled());
+        const auto key = [](QWindow *target, QEvent::Type type, int code, bool repeat = false) {
+            QKeyEvent event(type, code, Qt::NoModifier, QString(), repeat);
+            QCoreApplication::sendEvent(target, &event);
+        };
+        key(&window, QEvent::KeyPress, Qt::Key_W);
+        QCOMPARE(input.frame().keys, 1u);
+        input.setEnabled(false); // UI occupied / control gate closed.
+        QCOMPARE(input.frame().keys, 0u);
+        input.setEnabled(true);
+        key(&window, QEvent::KeyPress, Qt::Key_W, true);
+        QCOMPARE(input.frame().keys, 0u); // A held key cannot rearm after the gate opens.
+        key(&window, QEvent::KeyRelease, Qt::Key_W);
+        key(&window, QEvent::KeyPress, Qt::Key_W);
+        QCOMPARE(input.frame().keys, 1u);
+        QSignalSpy lost(&input, &rm27::app::OperatorInput::captureLost);
+        QEvent deactivate(QEvent::WindowDeactivate);
+        QCoreApplication::sendEvent(&window, &deactivate);
+        QVERIFY(!input.enabled()); QCOMPARE(input.frame().keys, 0u);
+        QCOMPARE(lost.size(), 1);
+        input.setEnabled(true); QVERIFY(!input.enabled());
+        QCoreApplication::sendEvent(&window, &activate);
+        input.setEnabled(true);
+        QCOMPARE(input.frame().keys, 0u);
+        key(&window, QEvent::KeyRelease, Qt::Key_W);
+
+        std::vector<rm27::historical::rm2026::KeyboardMouseCommand> frames;
+        connect(&input, &rm27::app::OperatorInput::frameReady, this,
+                [&] { frames.push_back(input.frame()); });
+        const auto move = [&](QPointF pos) {
+            QMouseEvent event(QEvent::MouseMove, pos, pos, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&window, &event);
+        };
+        move({10, 10}); move({15, 13});
+        QWheelEvent wheel({15, 13}, {15, 13}, {}, {0, 120}, Qt::NoButton,
+                          Qt::NoModifier, Qt::ScrollUpdate, false);
+        QCoreApplication::sendEvent(&window, &wheel);
+        QTRY_VERIFY(!frames.empty());
+        QCOMPARE(frames.front().x, 5); QCOMPARE(frames.front().y, -3);
+        QCOMPARE(frames.front().wheel, 120);
+        QTRY_VERIFY(frames.size() >= 2);
+        QCOMPARE(frames.back().x, 0); QCOMPARE(frames.back().y, 0);
+        QCOMPARE(frames.back().wheel, 0);
+        QMouseEvent press(QEvent::MouseButtonPress, {15, 13}, {15, 13}, Qt::LeftButton,
+                          Qt::LeftButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(&window, &press); QVERIFY(input.frame().left);
+        input.setEnabled(false); input.setEnabled(true);
+        QVERIFY(!input.frame().left);
+        QMouseEvent release(QEvent::MouseButtonRelease, {15, 13}, {15, 13}, Qt::LeftButton,
+                            Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(&window, &release);
+        QCoreApplication::sendEvent(&window, &press); QVERIFY(input.frame().left);
+        QCoreApplication::sendEvent(&window, &release);
+
+        key(&window, QEvent::KeyPress, Qt::Key_S);
+        auto other = std::make_unique<QWindow>();
+        input.observe(other.get());
+        QCoreApplication::sendEvent(other.get(), &activate); input.setEnabled(true);
+        key(other.get(), QEvent::KeyPress, Qt::Key_S); QCOMPARE(input.frame().keys, 0u);
+        key(other.get(), QEvent::KeyRelease, Qt::Key_S);
+        key(other.get(), QEvent::KeyPress, Qt::Key_S); QCOMPARE(input.frame().keys, 2u);
+        key(&window, QEvent::KeyPress, Qt::Key_W); QCOMPARE(input.frame().keys, 2u);
+        other.reset(); QVERIFY(!input.enabled()); QCOMPARE(input.frame().keys, 0u);
+        input.observe(nullptr); input.setEnabled(true); QVERIFY(!input.enabled());
+    }
+#ifdef RM27_UPSTREAM_BACKEND
+    void upstreamHevcVideo()
+    {
+        QFile file(QString::fromUtf8(qgetenv("RM27_TEST_HEVC")));
+        if (file.fileName().isEmpty()) QSKIP("No generated HEVC test pattern selected");
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto stream = file.readAll();
+        QList<qsizetype> starts;
+        for (qsizetype i = 0; i + 5 < stream.size(); ++i) {
+            const int prefix = stream.mid(i, 4) == QByteArray::fromHex("00000001") ? 4
+                : stream.mid(i, 3) == QByteArray::fromHex("000001") ? 3 : 0;
+            if (!prefix) continue;
+            if ((static_cast<unsigned char>(stream[i + prefix]) >> 1) == 35) starts.append(i);
+            i += prefix - 1;
+        }
+        QVERIFY(starts.size() >= 30 && starts.first() == 0);
+        starts.append(stream.size());
+        QList<QByteArray> frames;
+        for (int i = 0; i + 1 < starts.size(); ++i) frames.append(stream.mid(starts[i], starts[i + 1] - starts[i]));
+        QUdpSocket reservation, sender, wrongSource;
+        QVERIFY(reservation.bind(QHostAddress::LocalHost, 0));
+        const auto port = reservation.localPort();
+        reservation.close();
+        QVERIFY(wrongSource.bind(QHostAddress("127.0.0.2"), 0));
+        TerminalController terminal(false, nullptr, 0, false, 0, false, true);
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty("terminal", &terminal);
+        engine.rootContext()->setContextProperty("initialVideo", QUrl());
+        engine.rootContext()->setContextProperty("initialSimUdpVideo", false);
+        engine.load(QUrl::fromLocalFile(QStringLiteral(RM27_QML_SOURCE)));
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+        QVERIFY(window && QTest::qWaitForWindowExposed(window));
+        dismissStartPanel(window);
+        auto* output = window->findChild<QObject*>("localVideoOutput");
+        QVERIFY(output);
+        auto* sink = output->property("videoSink").value<QVideoSink*>();
+        QVERIFY(sink);
+        QVERIFY(terminal.configureRm2026Video(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 0, true));
+        // Same bind must fail; never share another receiver's endpoint.
+        rm27::video::UpstreamVideo contender;
+        QVERIFY(!contender.start(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 0));
+        quint16 sequence = 0;
+        int index = 0;
+        unsigned base = 0;
+        const auto sendFrame = [&](const QByteArray& frame, bool drop = false) {
+            const int slices = int((frame.size() + 1391) / 1392);
+            for (int slice = slices - 1; slice >= 0; --slice) {
+                if (drop && slice == 0) continue;
+                QByteArray packet(8, '\0');
+                qToBigEndian(sequence, packet.data());
+                qToBigEndian(quint16(slice + base), packet.data() + 2);
+                qToBigEndian(quint32(frame.size()), packet.data() + 4);
+                packet.append(frame.mid(slice * 1392, 1392));
+                sender.writeDatagram(packet, QHostAddress::LocalHost, port);
+                if (slice == slices - 1) sender.writeDatagram(packet, QHostAddress::LocalHost, port);
+            }
+            ++sequence;
+        };
+        // A non-keyframe at startup cannot create a current image.
+        sendFrame(frames[1]);
+        QByteArray forbidden(9, '\0');
+        qToBigEndian(quint32(1), forbidden.data() + 4);
+        wrongSource.writeDatagram(forbidden, QHostAddress::LocalHost, port);
+        sender.writeDatagram(QByteArray(1401, 'x'), QHostAddress::LocalHost, port);
+        QTest::qWait(200);
+        QCOMPARE(terminal.decodedFrames(), 0);
+        QTimer transmit;
+        connect(&transmit, &QTimer::timeout, &sender, [&] { sendFrame(frames[index++ % frames.size()]); });
+        transmit.start(33);
+        QTRY_VERIFY_WITH_TIMEOUT(terminal.decodedFrames() > 20, 6000);
+        QVERIFY(terminal.videoConnected() && !terminal.refereeFresh() && !terminal.controlsArmed());
+        QVERIFY(terminal.videoDiagnosticsLabel().contains(QStringLiteral("HEVC 收包")));
+        QVERIFY(!terminal.videoDiagnosticsLabel().contains(QStringLiteral("UDP 探针")));
+        const auto picture = sink->videoFrame().toImage();
+        QCOMPARE(picture.size(), QSize(320, 180));
+        QSet<QRgb> colors;
+        for (int y = 15; y < picture.height(); y += 30)
+            for (int x = 15; x < picture.width(); x += 30) colors.insert(picture.pixel(x, y));
+        QVERIFY(colors.size() > 4);
+        QVERIFY(output->property("visible").toBool());
+        QImage rendered;
+        const auto renderedPattern = [&] {
+            rendered = window->grabWindow();
+            if (rendered.isNull()) return false;
+            int brightPixels = 0;
+            for (int y = 300; y < 600; y += 40)
+                for (int x = 400; x < 1200; x += 40) {
+                    const auto color = rendered.pixelColor(x, y);
+                    if (color.saturation() > 180 && color.value() > 180) ++brightPixels;
+                }
+            return brightPixels > 10;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(renderedPattern(), 3000);
+        QVERIFY(rendered.save(rm27::app::previewPath("rm26-upstream-hevc.png")));
+        const auto transport = terminal.refereeDiagnostics().value("video").toMap().value("transport").toMap();
+        QVERIFY(transport.value("rejectedPackets").toULongLong() >= 2);
+        QVERIFY(transport.value("duplicates").toULongLong() > 0);
+        QVERIFY(transport.value("imageQueueDepth").toInt() <= 1);
+        transmit.stop();
+        sendFrame(frames[0], true); // Incomplete AU must not be decoded.
+        QTest::qWait(250);
+        QTRY_VERIFY_WITH_TIMEOUT(terminal.videoStale(), 1800);
+        QVERIFY(!sink->videoFrame().isValid());
+        const auto before = terminal.decodedFrames();
+        sequence = 0; index = 0;
+        transmit.start(33);
+        QTRY_VERIFY_WITH_TIMEOUT(terminal.decodedFrames() > before + 4, 4000);
+        QVERIFY(terminal.videoConnected());
+        transmit.stop();
+        // Restart a new session with explicit one-based fragments.
+        QVERIFY(terminal.configureRm2026Video(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 1, false));
+        QVERIFY(!sink->videoFrame().isValid());
+        // Exercise pairing with actual decoded artificial HEVC, never hardware evidence.
+        QVERIFY(terminal.beginPairing("global", 3));
+        QVERIFY(terminal.confirmExternalPairing(terminal.pairingDiagnostics().value("session").toULongLong()));
+        QVERIFY(!terminal.pairingDiagnostics().value("videoFresh").toBool());
+        sequence = 0; index = 0; base = 1;
+        transmit.start(33);
+        QTRY_VERIFY_WITH_TIMEOUT(terminal.decodedFrames() > 4, 4000);
+        QCOMPARE(terminal.pairingDiagnostics().value("phase").toString(), QStringLiteral("video_review"));
+        QVERIFY(!terminal.pairingDiagnostics().value("hardwareVerified").toBool());
+        rm27::historical::rm2026::Snapshot identity;
+        identity.selfConfig = rm27::historical::rm2026::Received<rm27::historical::rm2026::SelfConfig>{
+            {}, std::chrono::steady_clock::now()};
+        identity.selfConfig->value.robotId = 3;
+        terminal.applyHistoricalSnapshot(identity, true);
+        QCOMPARE(terminal.pairingDiagnostics().value("identityStatus").toString(), QStringLiteral("reported_match"));
+        identity.selfConfig->value.robotId = 103;
+        terminal.applyHistoricalSnapshot(identity, true);
+        QCOMPARE(terminal.pairingDiagnostics().value("phase").toString(), QStringLiteral("identity_mismatch"));
+        QVERIFY(!terminal.upstreamVideoActive() && !sink->videoFrame().isValid());
+        terminal.enterOfflineDrill();
+        QVERIFY(!terminal.upstreamVideoActive() && !sink->videoFrame().isValid());
+        const auto offlineFrames = terminal.decodedFrames();
+        QTest::qWait(250);
+        QCOMPARE(terminal.decodedFrames(), offlineFrames);
+        transmit.stop();
+    }
+#endif
+#ifdef RM27_UPSTREAM_BACKEND
+    void upstreamIdentityProfile()
+    {
+        resetIsolatedSettings();
+        QTcpServer broker;
+        QVERIFY(broker.listen(QHostAddress::LocalHost, 0));
+        TerminalController terminal(false, nullptr, 0, false, 0, false, true);
+        QVERIFY(!terminal.configureRm2026("localhost", broker.serverPort(), 3, true));
+        QVERIFY(!terminal.configureRm2026("127.0.0.1", broker.serverPort(), 5, true));
+        QVERIFY(terminal.configureRm2026("127.0.0.1", broker.serverPort(), 3, true));
+        QCOMPARE(terminal.refereeDiagnostics().value("client_id").toString(), QString("3"));
+        QCOMPARE(terminal.ownRobotPreference(), QString("infantry3"));
+        QCOMPARE(terminal.ownTeamPreference(), QString("red"));
+        QVERIFY(terminal.hudSnapshot().isEmpty()); // Preference is not a received report.
+        QTRY_VERIFY(broker.hasPendingConnections());
+        terminal.connection()->setOwnTeam("blue");
+        QVERIFY(terminal.applyConnectionProfile());
+        QCOMPARE(terminal.refereeDiagnostics().value("client_id").toString(), QString("103"));
+        // The same profile leaves the current connection generation intact.
+        QVERIFY(terminal.applyConnectionProfile());
+        QCOMPARE(terminal.refereeDiagnostics().value("client_id").toString(), QString("103"));
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty("terminal", &terminal);
+        engine.rootContext()->setContextProperty("initialVideo", QUrl());
+        engine.rootContext()->setContextProperty("initialSimUdpVideo", false);
+        engine.load(QUrl::fromLocalFile(QStringLiteral(RM27_QML_SOURCE)));
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+        QVERIFY(window);
+        auto* selfLabel = window->findChild<QQuickItem*>("selfRobotLabel");
+        QVERIFY(selfLabel);
+        QCOMPARE(selfLabel->property("text").toString(), QStringLiteral("本车 · 机型待确认"));
+        auto* startPanel = window->findChild<QQuickItem*>("startPanel");
+        QVERIFY(startPanel);
+        QVERIFY(QMetaObject::invokeMethod(startPanel, "enterOffline"));
+        QVERIFY(terminal.offlineDrill());
+        QVERIFY(!window->property("startPanelVisible").toBool());
+        QVERIFY(!terminal.controlsArmed());
+        QVERIFY(terminal.linkBannerText().contains(QStringLiteral("离线演练")));
+        QTest::qWait(250);
+        QCOMPARE(terminal.modeLabel(), QStringLiteral("模拟"));
+        terminal.enterLocalPlayback();
+        QCOMPARE(terminal.modeLabel(), QStringLiteral("回放"));
+        QVERIFY(terminal.linkBannerText().contains(QStringLiteral("本地视频回放")));
+        QVERIFY(!terminal.controlsArmed());
+        QVERIFY(!terminal.refereeFresh());
+        QVERIFY(terminal.hudSnapshot().isEmpty());
+        // Returning from replay explicitly starts a new data session.
+        QVERIFY(terminal.applyConnectionProfile());
+        QCOMPARE(terminal.refereeDiagnostics().value("client_id").toString(), QString("103"));
+    }
+#endif
     void init()
     {
         resetIsolatedSettings();
@@ -170,18 +435,24 @@ private slots:
 
     void videoDiagnosticSources()
     {
+#ifdef RM27_UPSTREAM_BACKEND
         TerminalController hevc(false, nullptr, 0, false, 0, false, true);
-        hevc.enterSimulationVideo();
+        QUdpSocket reservation;
+        QVERIFY(reservation.bind(QHostAddress::LocalHost, 0));
+        const auto port = reservation.localPort();
+        reservation.close();
+        QVERIFY(hevc.configureRm2026Video(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 0, true));
         QVERIFY(hevc.videoDiagnostics().value("stage").toString().contains("HEVC"));
         QVERIFY(!hevc.videoDiagnostics().value("packets").isValid());
         QVERIFY(!hevc.videoDiagnosticsLabel().contains(QStringLiteral("UDP 探针")));
         QVideoSink sink;
         hevc.observeVideoSink(&sink);
         sink.setVideoFrame(QVideoFrame(QImage(8, 8, QImage::Format_RGB32)));
-        QCOMPARE(hevc.videoDiagnostics().value("stage").toString(), QStringLiteral("HEVC 实验已出帧"));
+        QCOMPARE(hevc.videoDiagnostics().value("stage").toString(), QStringLiteral("HEVC 已出帧"));
         QVERIFY(!hevc.videoDiagnostics().value("endToEndMeasured").toBool());
         QTRY_VERIFY_WITH_TIMEOUT(hevc.videoDiagnostics().value("stage").toString()
             .contains(QStringLiteral("过期")), 1500);
+#endif
         TerminalController local(false, nullptr, testRefereePort);
         local.enterLocalPlayback();
         QVERIFY(!local.videoDiagnostics().value("packets").isValid());
@@ -195,7 +466,16 @@ private slots:
     {
         // Artificial pixels verify the backend wiring, not physical pairing or camera identity.
         TerminalController terminal(false, nullptr, 0, false, 0, false, true);
-        terminal.enterSimulationVideo();
+#ifdef RM27_UPSTREAM_BACKEND
+        QUdpSocket reservation;
+        QVERIFY(reservation.bind(QHostAddress::LocalHost, 0));
+        const auto port = reservation.localPort();
+        reservation.close();
+        const auto configureVideo = [&] {
+            return terminal.configureRm2026Video(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 0, false);
+        };
+        QVERIFY(!terminal.beginPairing("global", 3)); // No active native source.
+        QVERIFY(configureVideo());
         QVideoSink sink, replacement;
         terminal.observeVideoSink(&sink);
         QVERIFY(!terminal.beginPairing("invalid-region", 3));
@@ -209,6 +489,10 @@ private slots:
         QVERIFY(!terminal.pairingDiagnostics().value("hardwareVerified").toBool());
         QVERIFY(!terminal.pairingDiagnostics().value("controlAllowed").toBool());
         QVERIFY(!terminal.controlsArmed());
+        sink.setVideoFrame({});
+        QVERIFY(!terminal.pairingDiagnostics().value("videoFresh").toBool());
+        QCOMPARE(terminal.pairingDiagnostics().value("phase").toString(), QStringLiteral("video_required"));
+        sink.setVideoFrame(QVideoFrame(QImage(8, 8, QImage::Format_RGB32)));
         QVERIFY(!terminal.pairingDiagnostics().value("reportedRobotId").isValid());
         QCOMPARE(terminal.pairingDiagnostics().value("identityStatus").toString(), QStringLiteral("unknown"));
         terminal.cancelPairing();
@@ -229,9 +513,16 @@ private slots:
         QCOMPARE(terminal.pairingDiagnostics().value("phase").toString(), QStringLiteral("video_review"));
         terminal.observeVideoSink(&sink);
         QVERIFY(!terminal.pairingDiagnostics().value("videoFresh").toBool());
+        const auto frameCount = terminal.decodedFrames();
+        replacement.setVideoFrame(QVideoFrame(QImage(10, 10, QImage::Format_RGB32)));
+        QCOMPARE(terminal.decodedFrames(), frameCount);
+        sink.setVideoFrame(QVideoFrame(QImage(10, 10, QImage::Format_RGB32)));
+        QCOMPARE(terminal.decodedFrames(), frameCount + 1);
         QVERIFY(terminal.pairingDeviceDisconnected(session));
         QCOMPARE(terminal.pairingDiagnostics().value("phase").toString(), QStringLiteral("disconnected"));
         QVERIFY(!terminal.confirmExternalPairing(session));
+        QVERIFY(!terminal.upstreamVideoActive());
+        QVERIFY(configureVideo());
         QVERIFY(terminal.beginPairing("global", 3, 20));
         session = terminal.pairingDiagnostics().value("session").toULongLong();
         QTest::qWait(30);
@@ -241,134 +532,43 @@ private slots:
         terminal.enterLocalPlayback();
         QCOMPARE(terminal.pairingDiagnostics().value("phase").toString(), QStringLiteral("cancelled"));
         QVERIFY(!terminal.beginPairing("global", 3));
-        TerminalController synthetic(false, nullptr, 0, false, 0, true, true);
+        TerminalController synthetic(false, nullptr, 0, false, 0, true);
+        QVERIFY(synthetic.configureRm2026Video(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 0, true));
         QVERIFY(!synthetic.beginPairing("global", 3));
         TerminalController normal(false, nullptr, testRefereePort);
         QVERIFY(!normal.beginPairing("global", 3));
+        synthetic.enterLocalPlayback();
+        TerminalController testSource(false, nullptr, 0, false, 0, false, true);
+        QVERIFY(testSource.configureRm2026Video(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 0, true));
+        QVERIFY(!testSource.beginPairing("global", 3));
+        testSource.enterLocalPlayback();
+        // The real snapshot path, not the requested client ID, supplies identity.
+        TerminalController reports(false, nullptr, 0, false, 0, false, true);
+        QVERIFY(reports.configureRm2026Video(QHostAddress::LocalHost, port, QHostAddress::LocalHost, 0, false));
+        QVERIFY(reports.beginPairing("global", 3));
+        using namespace rm27::historical::rm2026;
+        Snapshot snapshot;
+        snapshot.selfConfig = Received<SelfConfig>{{3, 1000, 1}, std::chrono::steady_clock::now()};
+        reports.applyHistoricalSnapshot(snapshot, true);
+        QCOMPARE(reports.pairingDiagnostics().value("identityStatus").toString(), QStringLiteral("reported_match"));
+        snapshot.selfConfig->at -= std::chrono::seconds(2);
+        reports.applyHistoricalSnapshot(snapshot, true);
+        QVERIFY(!reports.pairingDiagnostics().value("reportedRobotId").isValid());
+        QVERIFY(reports.upstreamVideoActive());
+        snapshot.selfConfig->at = std::chrono::steady_clock::now();
+        reports.applyHistoricalSnapshot(snapshot, false);
+        QVERIFY(!reports.pairingDiagnostics().value("reportedRobotId").isValid());
+        QVERIFY(reports.upstreamVideoActive());
+        snapshot.selfConfig->value.robotId = 103;
+        reports.applyHistoricalSnapshot(snapshot, true);
+        QCOMPARE(reports.pairingDiagnostics().value("phase").toString(), QStringLiteral("identity_mismatch"));
+        QVERIFY(!reports.upstreamVideoActive());
+        QVERIFY(!reports.controlsArmed());
+#else
+        QSKIP("Native HEVC backend not built");
+#endif
     }
 
-#ifdef RM27_RM2026_VIDEO_HUD
-    void historicalHevcUdp()
-    {
-        const QString fixture = QString::fromUtf8(qgetenv("RM27_TEST_HEVC"));
-        if (fixture.isEmpty()) QSKIP("No generated Annex-B HEVC fixture selected");
-        QFile file(fixture);
-        QVERIFY(file.open(QIODevice::ReadOnly));
-        const QByteArray stream = file.readAll();
-        QVERIFY(!stream.isEmpty() && stream.size() < 2 * 1024 * 1024);
-        // Fixture is generated with x265 aud=1; split at access-unit delimiters,
-        // preserving VPS/SPS/PPS and all slices within each test frame.
-        QList<qsizetype> starts;
-        for (qsizetype i = 0; i + 5 < stream.size(); ++i) {
-            int prefix = 0;
-            if (stream.mid(i, 4) == QByteArray::fromHex("00000001")) prefix = 4;
-            else if (stream.mid(i, 3) == QByteArray::fromHex("000001")) prefix = 3;
-            if (prefix) {
-                if ((static_cast<unsigned char>(stream[i + prefix]) >> 1) == 35) starts.append(i);
-                i += prefix - 1;
-            }
-        }
-        QVERIFY(starts.size() >= 30);
-        QCOMPARE(starts.first(), qsizetype(0));
-        starts.append(stream.size());
-        QList<QByteArray> frames;
-        for (qsizetype i = 0; i + 1 < starts.size(); ++i)
-            frames.append(stream.mid(starts[i], starts[i + 1] - starts[i]));
-        QUdpSocket reservation, sender;
-        QVERIFY(reservation.bind(QHostAddress::LocalHost, 0));
-        const quint16 inputPort = reservation.localPort();
-        reservation.close();
-        rm27::video::HistoricalVideoReceiver receiver(0);
-        TerminalController terminal(false, nullptr, 0, false, 0, false, true);
-        QQmlApplicationEngine engine;
-        engine.rootContext()->setContextProperty("terminal", &terminal);
-        engine.rootContext()->setContextProperty("initialVideo", QUrl());
-        engine.rootContext()->setContextProperty("initialSimUdpVideo", false);
-        engine.load(QUrl::fromLocalFile(QStringLiteral(RM27_QML_SOURCE)));
-        QVERIFY(!engine.rootObjects().isEmpty());
-        auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
-        QVERIFY(window && QTest::qWaitForWindowExposed(window));
-        auto* player = window->findChild<QMediaPlayer*>("localPlayer");
-        auto* output = window->findChild<QObject*>("localVideoOutput");
-        QVERIFY(player && output);
-        auto* sink = output->property("videoSink").value<QVideoSink*>();
-        QVERIFY(sink);
-        terminal.enterSimulationVideo();
-        terminal.configureSimulationVideoPlayer(player);
-        window->setProperty("simulationVideoSelected", true);
-        player->setSource(QUrl(QStringLiteral("udp://127.0.0.1:%1?localaddr=127.0.0.1&fifo_size=1024&overrun_nonfatal=1")
-            .arg(testVideoDecodePort)));
-        QVERIFY(receiver.start(inputPort, testVideoDecodePort));
-        quint16 sequence = 0;
-        qsizetype index = 0;
-        QTimer transmit;
-        connect(&transmit, &QTimer::timeout, &sender, [&] {
-            const auto& frame = frames[index++ % frames.size()];
-            const int slices = int((frame.size() + 1391) / 1392);
-            // Reverse arrival order and occasional duplicates exercise reassembly
-            // before the actual Qt decoder and unchanged QML VideoOutput.
-            for (int slice = slices - 1; slice >= 0; --slice) {
-                QByteArray packet(8, '\0');
-                qToBigEndian(sequence, packet.data());
-                qToBigEndian(quint16(slice), packet.data() + 2);
-                qToBigEndian(quint32(frame.size()), packet.data() + 4);
-                packet.append(frame.mid(slice * 1392, 1392));
-                sender.writeDatagram(packet, QHostAddress::LocalHost, inputPort);
-                if (sequence % 10 == 0) sender.writeDatagram(packet, QHostAddress::LocalHost, inputPort);
-            }
-            ++sequence;
-        });
-        transmit.start(33);
-        player->play();
-        // Raw-stream probing may begin mid-GOP; wait through the next repeated
-        // keyframe before checking pixels, not just decoder concealment frames.
-        QTRY_VERIFY_WITH_TIMEOUT(terminal.decodedFrames() >= 25, 12000);
-        QVERIFY(terminal.videoConnected());
-        QVERIFY(!terminal.controlsArmed());
-        QVERIFY(terminal.historicalVideo());
-        QVERIFY(terminal.linkBannerText().contains(QStringLiteral("HEVC")));
-        const auto picture = sink->videoFrame().toImage();
-        QCOMPARE(picture.size(), QSize(320, 180));
-        QSet<QRgb> colors;
-        for (int y = 15; y < picture.height(); y += 30)
-            for (int x = 15; x < picture.width(); x += 30) colors.insert(picture.pixel(x, y));
-        QVERIFY(colors.size() > 4); // Decoded color pattern, not a gray placeholder.
-        QImage rendered;
-        const auto renderedPattern = [&] {
-            rendered = window->grabWindow();
-            int brightPixels = 0;
-            for (int y = 300; y < 600; y += 40)
-                for (int x = 400; x < 1200; x += 40) {
-                    const auto color = rendered.pixelColor(x, y);
-                    if (color.saturation() > 180 && color.value() > 180) ++brightPixels;
-                }
-            return brightPixels > 10;
-        };
-        QTRY_VERIFY_WITH_TIMEOUT(renderedPattern(), 5000);
-        QVERIFY(rendered.save(rm27::app::previewPath("rm2026-hevc-hud.png")));
-        auto* statusText = window->findChild<QQuickItem*>("videoStateText");
-        QVERIFY(statusText);
-        QVERIFY(statusText->property("text").toString().contains(QStringLiteral("HEVC")));
-        transmit.stop();
-        QTRY_VERIFY_WITH_TIMEOUT(terminal.videoStale(), 6000);
-        QVERIFY(statusText->property("text").toString().contains(QStringLiteral("旧帧非实时")));
-        QVERIFY(sink->videoFrame().isValid()); // Last frame retained, explicitly stale.
-        const auto before = terminal.decodedFrames();
-        QTest::qWait(800);
-        QCOMPARE(terminal.decodedFrames(), before);
-        sequence = 0;
-        index = 0;
-        transmit.start(33);
-        QTRY_VERIFY_WITH_TIMEOUT(terminal.decodedFrames() > before + 4, 8000);
-        QVERIFY(terminal.videoConnected());
-        QVERIFY(!terminal.controlsArmed());
-        QVERIFY(terminal.videoDiagnostics().value("recoveryAfterStaleMs").toLongLong() >= 0);
-        QVERIFY(!terminal.videoDiagnostics().value("endToEndMeasured").toBool());
-        transmit.stop();
-        receiver.stop();
-        player->stop();
-    }
-#endif
 
     void historicalGamePresentation()
     {
@@ -1353,6 +1553,63 @@ auto* structures = window->findChild<QQuickItem*>("enemyStructures");
         QVERIFY(!terminal.submitInputAction(QStringLiteral("controls.toggleArmed")));
         QVERIFY(!terminal.lastInputDecision().contains(QStringLiteral("界面正在占用")));
         QVERIFY(!terminal.lastInputDecision().isEmpty());
+    }
+
+    void respawnShortcuts()
+    {
+        resetIsolatedSettings();
+        TerminalController terminal(false, nullptr, testRefereePort);
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty("terminal", &terminal);
+        engine.rootContext()->setContextProperty("initialVideo", QUrl());
+        engine.rootContext()->setContextProperty("initialSimUdpVideo", false);
+        engine.load(QUrl::fromLocalFile(QStringLiteral(RM27_QML_SOURCE)));
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto *window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+        QVERIFY(window); QVERIFY(QTest::qWaitForWindowExposed(window));
+        auto *freeShortcut = window->findChild<QObject*>("freeRespawnShortcut");
+        auto *paidShortcut = window->findChild<QObject*>("paidRespawnShortcut");
+        QVERIFY(freeShortcut && paidShortcut);
+        QSignalSpy freeActivation(freeShortcut, SIGNAL(activated()));
+        QSignalSpy paidActivation(paidShortcut, SIGNAL(activated()));
+        QSignalSpy uiAction(&terminal, &TerminalController::inputActionRequested);
+        QVERIFY(freeActivation.isValid() && paidActivation.isValid());
+        QVERIFY(!freeShortcut->property("autoRepeat").toBool());
+        QVERIFY(!paidShortcut->property("autoRepeat").toBool());
+        QTRY_VERIFY(terminal.uiOccupied());
+        QVERIFY(!freeShortcut->property("enabled").toBool());
+        QTest::keyClick(window, Qt::Key_Y); QCOMPARE(freeActivation.size(), 0);
+        QVERIFY(!terminal.submitInputAction("event.freeRespawn"));
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("界面正在占用")));
+        QCOMPARE(uiAction.size(), 0); // Refused event is never a pretend UI dispatch.
+        dismissStartPanel(window);
+        QTRY_VERIFY(freeShortcut->property("enabled").toBool());
+        QTest::keyClick(window, Qt::Key_Y, Qt::ControlModifier);
+        QTest::keyClick(window, Qt::Key_Y, Qt::AltModifier);
+        QCOMPARE(freeActivation.size(), 0);
+        QTest::keyClick(window, Qt::Key_Y);
+        QTRY_COMPARE(freeActivation.size(), 1);
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("请求免费复活")));
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("未发送")));
+        QKeyEvent repeat(QEvent::KeyPress, Qt::Key_Y, Qt::NoModifier, "y", true, 1);
+        QCoreApplication::sendEvent(window, &repeat);
+        QCOMPARE(freeActivation.size(), 1);
+        QTest::keyClick(window, Qt::Key_F1, Qt::ShiftModifier);
+        QTRY_COMPARE(paidActivation.size(), 1);
+        QVERIFY(!window->property("startPanelVisible").toBool());
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("请求付费复活")));
+        QCOMPARE(uiAction.size(), 0); QVERIFY(!terminal.controlsArmed());
+        QTest::keyClick(window, Qt::Key_F1);
+        QTRY_VERIFY(window->property("startPanelVisible").toBool());
+        QCOMPARE(uiAction.size(), 1); // Original F1 action retained.
+        dismissStartPanel(window);
+        terminal.enterOfflineDrill();
+        QVERIFY(!terminal.submitInputAction("event.freeRespawn"));
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("模拟或回放模式禁止下发")));
+        terminal.enterLocalPlayback();
+        QVERIFY(!terminal.submitInputAction("event.paidRespawn"));
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("模拟或回放模式禁止下发")));
+        QCOMPARE(uiAction.size(), 1);
     }
 
     // 性能读数：出帧率与 GUI 线程抖动（抖动大 = 解码/IO 回到 GUI 线程）。

@@ -25,6 +25,8 @@ const char* videoSourceText(const VideoSource source) noexcept
         return "本地回放";
     case VideoSource::SimulationUdp:
         return "本机 UDP 联调";
+    case VideoSource::Rm2026Hevc:
+        return "RM2026 HEVC";
     }
     return "未知来源";
 }

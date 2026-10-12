@@ -83,6 +83,7 @@ public:
     [[nodiscard]] QString entryModeLabel() const;
     [[nodiscard]] bool entryAllowed() const;
     [[nodiscard]] bool formalLinkReady() const;
+    void enableRm2026Profile(bool testSource);
 
     [[nodiscard]] QVariantList interfaces() const;
     [[nodiscard]] bool hasWiredLink() const;
@@ -170,6 +171,8 @@ private:
     bool offlineSentinel_{false};
     bool localSimulation_{true};
     bool entryAllowed_{false};
+    bool rm2026Profile_{false};
+    bool rm2026TestSource_{false};
     QString entryModeLabel_;
 
     QString lastOfflineEntryAt_;

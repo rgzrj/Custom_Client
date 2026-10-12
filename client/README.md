@@ -1,5 +1,19 @@
 # RM2027 自定义终端
 
+当前后端迁移以 ClearWei/RM26_Client 固定提交为基线，保留现有 UI 设计，仅开发 VT03/VT13。M0 已核验 35 个消息定义；M1 已把开源 MQTT/NetworkManager/GameData 接入普通客户端，订阅 24 个已核验下行主题并接到现有 HUD。完整状态和后续验收见 [迁移清单](docs/upstream-migration.md) 与 [CLAUDE.md](CLAUDE.md#当前迁移目标与下一步任务2026-10-11)。实物未到，软件接入不代表现场或 RM2027 验收。
+
+M3 已完成11类上行的有类型接口、统一发送门、异步 PUBACK 与窗口键鼠采集接线。工作线程最多8条在途消息，输入只保留最新一份和一份优先释放；失焦、遮挡、切源、断线或输入过期清旧状态。普通客户端的业务权限门尚未放行，操作控制仍锁定；已增加发送时的角色、阶段、连接/上场/存活、复活资格/余额、装配步骤和空中支援费用检查；仍缺输入来源授权、处罚解除、部分操作身份/区域/配额依据，保留现有UI。broker确认与赛事接受/机器人执行分开记录，详见[迁移记录](docs/upstream-migration.md)。
+
+复活快捷键已接：`Y`请求免费复活、`Shift+F1`请求付费复活；`F1`继续打开启动面板。界面占用时禁用，按住不自动重复。请求仍受角色/死亡/pending/资格/费用及完整权限门约束；当前普通操作权限未开放，按键会说明未发送，排队/PUBACK均不代表复活成功。
+
+事件排队后资格失效或过期，只丢弃该事件；保留键鼠前仍检查当前真实身份、比赛和输入权限。暂停、身份变化、死亡、断线或输入过期继续停止控制。诊断`commands.event_status`/`events_rejected`记录工作线程事件拒绝和过期，独立于键鼠的broker确认，不是机器人执行回执。
+
+普通启动停在现有启动面板，填写 MQTT 地址/端口、启用 MQTT、选择红/蓝方和机型后才连接；红步兵 3 请求 ID `3`，蓝步兵 3 请求 `103`。界面本车身份以收到的报告为准，选择机型不切相机、不替代官方对频。高级设置中的旧模拟 UDP 参数不参与 RM2026 数据连接。离线演练/本地回放会停止这条连接并保持控制锁定。
+
+明确端点也可从客户端目录用 `run-terminal.cmd -Protocol rm2026-v2.0.0 -MqttHost <已确认IPv4> -MqttPort <已确认端口> -RobotId 3` 启动。本机对端加 `-ProtocolTest`，地址只能为 `127.0.0.1`；`-DiagnosticsJson -DurationMs 10000` 仅用于本机诊断。程序不自建 broker，不扫描或配置网卡。普通构建默认启用 `RM27_UPSTREAM_BACKEND`；新增依赖从固定源码编译，开发需 protoc 29.3（CMake `RM2026_PROTOC`），发布运行不需 Python/protoc。
+
+普通入口已接开源 HEVC 解码后端（M2），指令按 M3 接入。`RadarInfoToClient` 因官方外层定义歧义未订阅；新增主题的原始有效字段可在本机诊断的 `reports` 树核验，缺少现有 UI 展示入口的功能见迁移清单。
+
 ## 独立客户端项目
 
 本目录可单独用编辑器打开、构建、运行和打包；不包含 Python 模拟器，也不依赖父目录构建文件。
@@ -24,6 +38,18 @@ Windows 优先的 Qt 6/QML/C++ 操作手终端，当前用于本机模拟联调�
 
 配对流程与软件接线见[配对框架说明](tools/README-pairing.md)。真实对频按官方主控菜单和接收端按键完成，USB/官方服务的网络输出仍待 VT13 到货验收；状态框架不等于自动硬件对频。
 
+## 普通入口的 RM2026 HEVC 图传
+
+`run-terminal.cmd -OfficialUdpVideo` 现在运行普通 `build-gui/rm27_terminal.exe`，直接将开源 HevcDecoder 的图像送现有 VideoOutput。布局、准星、字体、颜色和 PreserveAspectFit 保持；不转码，不调用 DJI FFmpeg，不另开播放器。视频可独立运行，也可和上面的 MQTT 配置一起运行。
+
+显式指定 `-BindAddress <本机已确认IPv4> -SourceAddress <官方输出已确认源IPv4> -VideoPort <已确认端口> -FragmentBase 0或1`；非环回再加 `-AllowNetworkVideo`。本机人工对端用 `-ProtocolTest`，监听与来源只能为 127.0.0.1。普通启动不会自动监听、猜源、修改网卡或发对频命令。
+
+2026通信V2.0.0 §2规定 UDP3334、HEVC、8字节大端2/2/4包头、包长≤1400；分片起始0/1和Annex-B/参数集是当前适配的显式假设，需实物核验。视频线程只保留最新一张待提交图像，GUI每16ms取最新；完整组帧后才解码，缺片/序号缺口重置并等关键帧。700ms没有有效画面就清旧帧并标过期；恢复不需要重启整个程序。MQTT与视频各自断链，身份配置/报告身份改变、离线/回放切换清旧视频。阈值和资源上限是项目决策，控制仍禁用。
+
+FFmpeg开发依赖见 [固定公共头与来源](third_party/ffmpeg-7.1.5/README.md)，Windows MinGW直接链接同版Qt LGPL共享DLL；源码归档已放在用户指定的 Huge Mas/开源/tmp。开发/打包不依赖外部开源目录。本机人工色条320x180/30fps验证不代表VT13配对、现场图传或1080p60验收。启动面板的模拟UDP参数不启动这条实际HEVC接收链路，现场参数暂走上述显式启动入口。
+
+人工配对参数已接普通入口：`-PairingRobotId 3 -PairingRegion global`，完成官方对频后才加 `-PairingConfirmed`。MQTT 请求身份必须与配对目标一致；`-ProtocolTest`、合成 HUD 和回放不能创建硬件配对会话。报告身份来自新鲜裁判报文，缺失/过期为未知，不匹配会停止旧视频。详情见[配对说明](tools/README-pairing.md)。旧独立视频脚本、VIDEO_HUD 分支、HistoricalVideoReceiver 与第二 UDP 解码端口已删除；LOCAL 合成 HEVC 使用同一个直接解码后端。
+
 ## RM2026 通信参考（独立历史版本）
 
 按用户提供的 2026 V2.0.0 通信协议建立了独立[版本目录与验收说明](contracts/rm2026-v2.0.0/README.md)：11 个接收 Protobuf 消息、3 个离线发送消息定义、Google 运行库解析/每主题过期检查、仅环回地址的 Python 与原生 C++ MQTT 只读参考，以及 C++ UDP 图传包头与有界分片重组测试。原生依赖用固定 MinGW 编译，运行无需 Python，独立目标默认关闭；已验收订阅/QoS1/断线清空/重连/订阅超时，并提供十类独立类型化快照（缺失/过期为未知，身份变化清缓存）。新增显式本机测试 HUD 映射，正常启动及发布仍不启用历史适配器；正式网络资源防护、实物 HEVC 图传与真实控制发布未完成。Qt Release 不增加 Python 依赖。雷达 schema 与视频分片假设等未确认项明确列在版本说明中，不能标为 RM2027 正式协议。
@@ -42,35 +68,11 @@ Windows 优先的 Qt 6/QML/C++ 操作手终端，当前用于本机模拟联调�
 
 同一演示可带上本机测试视频：`./scripts/run-rm2026-demo.ps1 -VideoTs ./video/console-h264-valid.ts`。顺序为解码出帧 → 停视频但继续裁判数据 → 新帧恢复 → 停裁判数据但继续视频，随后停止视频并完成 MQTT 断线/重连。旧帧留在画面时明确标为过期、非实时；来源是项目 MPEG-TS 测试格式，**不是 RM2026 正式图传分包**。样本仅本机保存，未随仓库/发布分发；参数和验收见[视频联调说明](contracts/rm2026-v2.0.0/README.md#本机测试视频与历史数据并行第十一阶段)。此演示不覆盖 H.265；新增 HEVC 实验见下节，实物图传与端到端延迟仍未验收。
 
-### HEVC 接收与现有 HUD（独立实验）
+### 本机合成 HEVC 回归
 
-无硬件时可在原 HUD 同时演示数字MQTT身份、赛事数据和分片HEVC：`./scripts/run-rm2026-demo.ps1 -Build -RobotId 3 -HevcFile ./build-video-fixtures/rm27-test-pattern.hevc -FragmentBase 0`。完整操作与开源能力对照见[第十五阶段](contracts/rm2026-v2.0.0/README.md#无硬件的-mqtt--hevc-只读闭环第十五阶段)。测试视频和MQTT独立停流/恢复，全程本机合成、控制禁用；没有实现物理配对或真实赛事接入，不改变普通模拟/回放入口。
+`./scripts/run-rm2026-demo.ps1 -Build -RobotId 3 -HevcFile ./build-video-fixtures/rm27-test-pattern.hevc -FragmentBase 0 -VideoFaults` 使用原创色条与标准库测试对端。合成数据仍走默认 OFF 的 LOCAL_HUD 协议参考，视频直接复用普通入口的 UpstreamVideo/开源 HevcDecoder；不再中转原始流到另一个 UDP 端口。它检查反序/重复/丢片、坏 HEVC、关键帧恢复及数据/视频独立过期，报告身份切换停止旧视频。没有硬件配对会话，全程标注合成来源、保持控制禁用。
 
-普通启动器通过 `-OfficialUdpVideo` 转入独立 HEVC 构建，默认 UDP `3334`。原 HUD 保留，控制永久禁用；此参数选择视频接收入口，硬件对频和官方服务输出按实机另验。无参数双击进入普通启动面板，不自动连接图传。
-
-先关闭已有自定义 HUD。仅测试本机接收入口（**不会自产视频，无发送器就等待**）：
-
-```powershell
-.\run-terminal.cmd -OfficialUdpVideo -BindAddress 127.0.0.1 -SourceAddress 127.0.0.1 -FragmentBase 0 -Build
-```
-
-实机联调先确认官方网络接口确实输出 HEVC 分片、电脑有线 IPv4、发送方 IP 和分片起始号，再将两个地址替换为实际值并加 `-AllowNetworkVideo`。`FragmentBase 0` 只是上述测试约定，不是已验证的 VT13 固件事实。新版网络视频接入不代表 VT13 USB 驱动或硬件配对已实现；首次对频按对应地区官方手册完成。
-
-参数 `-VideoPort` 可改实验端口；可用 `-DurationMs 1000` 限时检查入口。拒绝与 `-Video`、`-SimUdpVideo`、`-SimMqtt` 混用。新增启动器回归：`powershell -NoProfile -File .\tests\test_video_launcher.ps1`，只模拟分流/参数，不连接硬件。现有组帧、同步、出帧和恢复测试仍在 `build-rm2026-video/`。
-
-默认 **OFF** 的 `RM27_RM2026_VIDEO_HUD` 保留独立 `build-rm2026-video/` 入口；无硬件MQTT+HEVC组合另走第十五阶段的LOCAL开发入口，两构建开关仍互斥。接收链路为：显式环回端口上的 RM2026 分片 → 后台有界组帧 → 私有环回原始 HEVC 字节流 → Qt Multimedia 解码 → 原有 `VideoOutput` / HUD。复用现有解码器，不添加播放器、SDK 或运行时 Python 依赖。
-
-此入口仅接收已核对的网络 HEVC 分片，不访问串口或操作官方进程。测试出图不能证明实物已连通。
-
-仅在已有明确的本机测试发送端时运行（39006 只是此命令的示例实验端口；分片起始号须与该发送端一致）：
-
-```powershell
-.\scripts\run-rm2026-video.ps1 -VideoPort 39006 -FragmentBase 0 -ExperimentalVideo -Build
-```
-
-未送包会显示等待/首帧超时，不自动生成视频。关闭 HUD 停止本实验。普通启动和打包明确关闭选项；实验使用独立应用配置，控制永久禁用，其他 HUD 布局不变。输出统计继续写入 `log/`，测试截图在 `pitcure/temp/`。
-
-已用原创 **320×180 / 30 fps** HEVC 测试码流验证帧内乱序、重复、组帧后实际解码、Windows 窗口的视频像素/HUD、停流旧帧标注和恢复；最大帧/错误长度/不同来源/过期组帧分别检查。**未验证 VT13 实物、1080p60 性能、丢包后画面完整性或端到端延迟。** 原始流探测可能从 GOP 中途开始，须等重复关键帧；Qt 推断的帧率/缓冲行为还需真实样本核验，不能作为低延迟比赛方案发布。分片假设、资源限额和复现命令见[第十三阶段](contracts/rm2026-v2.0.0/README.md#hevc-组帧到现有-hud第十三阶段)。
+测试样本是本机生成的 320×180 / 30fps，不随源码或发布包分发；VT13 实物、1080p60、长时与端到端延迟待验。旧 `build-rm2026-video` 缓存/产物不更新，不能用于当前入口；带 `RM27_RM2026_VIDEO_HUD=ON` 的旧配置明确报退休错误。普通构建/回归使用 `build-gui`。
 
 ## GitHub 源码仓库
 
@@ -85,10 +87,10 @@ Windows 优先的 Qt 6/QML/C++ 操作手终端，当前用于本机模拟联调�
 开发者生成 Release 便携包（旧包保留、不覆盖）：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1 -TestVideo .\video\pattern-h264.mp4
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1 -TestVideo .\video\pattern-h264.mp4 -TestHevc .\build-video-fixtures\rm27-test-pattern.hevc -TestTs .\video\console-h264-valid.ts
 ```
 
-`-TestVideo` 可省略；提供时运行已有的 GUI/视频回归测试，并将该视频作为 `demo.mp4` 随包附带。仅传入有权分发的原创测试样本。脚本执行 Release 构建、CTest、Qt/QML/FFmpeg/MinGW 部署，生成使用说明、版本与依赖清单、默认配置源码校验、ZIP 和 SHA-256。首次生成后仍需在未安装 Qt 的 Windows 机器上验证；版本清单不会将本机环境隔离测试冒充干净机器验证。
+完整视频验收应显式提供三种测试样本；省略时将对应CMake缓存清空，manifest.testFixtures如实记录缺少的覆盖。TestVideo还作为demo.mp4随包附带，HEVC/TS只作构建测试，不随包分发。仅传入有权分发的原创测试样本。脚本执行Release构建、CTest、Qt/QML/FFmpeg/MinGW部署，再复用check-windows-package在无开发PATH、无Qt插件路径及无原配置的环境检查部署目录、实际Windows GUI与DLL来源；通过后生成来源/协议/覆盖信息、依赖清单、ZIP和SHA-256。首次生成后仍需在未安装Qt的Windows机器上验证，cleanMachineVerified保持false。
 
 打包需要 Qt Multimedia 的离线文档以附带 FFmpeg 的版权与许可正文。检查 ZIP 校验、解压内容及隔离 Qt 环境后的启动：
 

@@ -12,6 +12,7 @@
 #include <QMediaPlayer>
 #include <QVariantList>
 #include <QTimer>
+#include <QHostAddress>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
 #include <QPlaybackOptions>
 #endif
@@ -34,9 +35,8 @@ TerminalController::TerminalController(const bool demoMode, QObject* parent,
                                        const bool simulationMqtt,
                                        const quint16 simulationMqttPort,
                                        const bool historicalLocal,
-                                       const bool historicalVideo)
-    : QObject(parent), historicalLocal_(historicalLocal || historicalVideo),
-      historicalVideo_(historicalVideo), historicalSyntheticVideo_(historicalLocal && historicalVideo)
+                                       const bool upstreamData)
+    : QObject(parent), historicalLocal_(historicalLocal), upstreamData_(upstreamData)
 {
     connection_ = new rm27::app::ConnectionSettings(this);
     // 面板改配置（例如开局挑选本车机型）后界面要立刻跟随，因此把配置变更并入状态变更。
@@ -46,7 +46,7 @@ TerminalController::TerminalController(const bool demoMode, QObject* parent,
     const rm27::ConnectionProfile savedProfile = connection_->profile();
     const quint16 refereePort = simulationPort != 0 ? simulationPort : savedProfile.refereePort;
     const quint16 videoProbePort = savedProfile.videoProbePort;
-    const bool mqttEnabled = !historicalLocal_ && connection_->entryAllowed()
+    const bool mqttEnabled = !historicalLocal_ && !upstreamData_ && connection_->entryAllowed()
         && (simulationMqtt || savedProfile.useMqtt);
     const quint16 mqttPort = simulationMqttPort != 0 ? simulationMqttPort : savedProfile.mqttPort;
 
@@ -74,6 +74,7 @@ TerminalController::TerminalController(const bool demoMode, QObject* parent,
 
     connect(simReceiver_, &rm27::sim::RefereeReceiver::radarReceived, this,
         [this](const rm27::sim::RadarSample& sample) {
+            if (upstreamData_) return;
             radarSnapshot_.clear();
             constexpr std::array names{"red", "blue"};
             for (size_t team = 0; team < names.size(); ++team) {
@@ -129,10 +130,9 @@ TerminalController::TerminalController(const bool demoMode, QObject* parent,
     connect(videoFrameStaleTimer_, &QTimer::timeout, this, [this] {
         videoStaleAtMs_ = videoClock_.elapsed();
         state_.video.fresh = false;
-        if (historicalVideo_) {
-            videoStatusLabel_ = decodedFrames_ > 0
-                ? QStringLiteral("HEVC 实验画面已过期 · 非实时")
-                : QStringLiteral("HEVC 实验首帧超时 · 尚无有效画面");
+        if (upstreamVideoActive_) {
+            videoStatusLabel_ = QStringLiteral("RM2026 HEVC 画面已过期 · 等待关键帧恢复");
+            if (pairingVideoSink_) pairingVideoSink_->setVideoFrame({});
         } else {
             videoStatusLabel_ = decodedFrames_ > 0
                 ? QStringLiteral("本机 UDP 测试图传已过期")
@@ -193,16 +193,29 @@ TerminalController::TerminalController(const bool demoMode, QObject* parent,
     fpsWindowStartedAtMs_ = QDateTime::currentMSecsSinceEpoch();
     fpsTimer->start();
 
-    const bool refereeListening = historicalLocal_
+    const bool refereeListening = historicalLocal_ || upstreamData_
         || (connection_->entryAllowed() && simReceiver_->start(refereePort));
-    const bool videoListening = historicalLocal_
+    const bool videoListening = historicalLocal_ || upstreamData_
         || (connection_->entryAllowed() && videoIngress_->start(videoProbePort));
 
-    if (historicalLocal_) {
+    if (upstreamData_) {
+        connection_->enableRm2026Profile(false);
+        state_.mode = TerminalMode::HeavyOperator;
+        setAlert(QStringLiteral("RM2026 裁判数据 · 等待明确连接配置"), false);
+#ifdef RM27_UPSTREAM_BACKEND
+        upstreamBackend_ = std::make_unique<rm27::protocol::rm2026::UpstreamBackend>();
+        auto* poll = new QTimer(this);
+        connect(poll, &QTimer::timeout, this, [this] {
+            if (offlineDrill_ || localPlayback_) return;
+            const auto view = upstreamBackend_->view();
+            applyHistoricalSnapshot(view.snapshot, view.subscribed);
+        });
+        poll->start(50);
+#endif
+    } else if (historicalLocal_) {
         simulationActive_ = true;
         state_.mode = TerminalMode::Simulation;
-        setAlert(historicalVideo_ ? QStringLiteral("RM2026 HEVC 图传实验 · 禁止下发")
-                                 : QStringLiteral("RM2026 本机合成测试 · 等待历史报文 · 禁止下发"), false);
+        setAlert(QStringLiteral("RM2026 本机合成测试 · 等待历史报文 · 禁止下发"), false);
     } else if (demoMode) {
         state_.phase = MatchPhase::Match;
         state_.referee = {true, true};
@@ -221,6 +234,11 @@ TerminalController::TerminalController(const bool demoMode, QObject* parent,
         setAlert(QStringLiteral("离线演练待确认 · 哨兵段 %1")
                      .arg(QString::fromUtf8(rm27::kOfflineSentinelCidr)), false);
     }
+#ifdef RM27_UPSTREAM_VIDEO
+    auto* videoPoll = new QTimer(this);
+    connect(videoPoll, &QTimer::timeout, this, &TerminalController::pollUpstreamVideo);
+    videoPoll->start(16);
+#endif
 }
 
 QString TerminalController::modeLabel() const
@@ -242,7 +260,7 @@ QString TerminalController::modeLabel() const
 
 QString TerminalController::phaseLabel() const
 {
-    if (historicalLocal_) return historicalPhaseLabel_;
+    if (historicalLocal_ || upstreamData_) return historicalPhaseLabel_;
     switch (state_.phase) {
     case MatchPhase::Boot:
         return QStringLiteral("启动中");
@@ -287,7 +305,7 @@ bool TerminalController::videoConnected() const noexcept
 
 bool TerminalController::videoStale() const noexcept
 {
-    return simulationVideoActive_ && videoStaleAtMs_ >= 0;
+    return (simulationVideoActive_ || upstreamVideoActive_) && videoStaleAtMs_ >= 0;
 }
 
 bool TerminalController::controllerConnected() const noexcept
@@ -343,9 +361,8 @@ QString TerminalController::videoStatusLabel() const
 // 实际视频出帧与独立模拟 UDP 探针分开观测。
 QString TerminalController::videoStage() const
 {
-    if (historicalVideo_ && simulationVideoActive_)
-        return videoStale() ? QStringLiteral("HEVC 实验出帧超时/过期")
-            : decodedFrames_ > 0 ? QStringLiteral("HEVC 实验已出帧") : QStringLiteral("HEVC 实验等待首帧");
+    if (upstreamVideoActive_) return videoStale() ? QStringLiteral("HEVC 出帧过期")
+        : decodedFrames_ ? QStringLiteral("HEVC 已出帧") : QStringLiteral("HEVC 等待关键帧");
     if (localPlayback_) {
         return QStringLiteral("本地回放（不经过探针）");
     }
@@ -369,16 +386,17 @@ QString TerminalController::videoStage() const
 
 QVariantMap TerminalController::videoDiagnostics() const
 {
-    const bool probe = !historicalLocal_ && !localPlayback_ && !simulationVideoActive_ && videoIngress_;
+    const bool probe = !upstreamData_ && !historicalLocal_ && !localPlayback_ && !simulationVideoActive_ && videoIngress_;
 
     QVariantMap map;
     map.insert(QStringLiteral("stage"), videoStage());
-    map.insert(QStringLiteral("stagePending"), historicalVideo_
-        ? QStringLiteral("RM2026 实验组帧统计见运行日志")
+    map.insert(QStringLiteral("stagePending"), upstreamVideoActive_
+        ? QStringLiteral("完整组帧 → FFmpeg 7.1.5 → 现有 VideoOutput")
         : localPlayback_ ? QStringLiteral("本地文件回放；不使用 UDP 探针")
         : simulationVideoActive_ ? QStringLiteral("本机 MPEG-TS 测试；不使用 UDP 探针")
         : QStringLiteral("组装/解码（待官方 UDP 分包格式）"));
-    map.insert(QStringLiteral("packetCountersSource"), probe ? QStringLiteral("simulation-udp-probe")
+    map.insert(QStringLiteral("packetCountersSource"), upstreamVideoActive_ ? QStringLiteral("rm2026-hevc-udp")
+        : probe ? QStringLiteral("simulation-udp-probe")
                                                            : QStringLiteral("unavailable"));
     map.insert(QStringLiteral("packets"), probe ? QVariant::fromValue(videoIngress_->packetCount()) : QVariant{});
     map.insert(QStringLiteral("bytes"), probe ? QVariant::fromValue(videoIngress_->byteCount()) : QVariant{});
@@ -402,6 +420,18 @@ QVariantMap TerminalController::videoDiagnostics() const
 
 QString TerminalController::videoDiagnosticsLabel() const
 {
+    if (upstreamVideoActive_) {
+        return QStringLiteral("HEVC 收包 %1 · 完整组帧 %2 · 解码 %3 / 呈现 %4 · 丢帧 %5 · 拒绝 %6"
+                              " · 重同步 %7 · 解码 %8 ms · 待图像 %9 · 端到端未测")
+            .arg(upstreamVideoStats_.value("packets").toULongLong())
+            .arg(upstreamVideoStats_.value("assembledFrames").toULongLong())
+            .arg(upstreamVideoStats_.value("decodedFrames").toULongLong()).arg(decodedFrames_)
+            .arg(upstreamVideoStats_.value("droppedFrames").toULongLong())
+            .arg(upstreamVideoStats_.value("rejectedPackets").toULongLong())
+            .arg(upstreamVideoStats_.value("resyncs").toULongLong())
+            .arg(upstreamVideoStats_.value("decodeMs").toDouble(), 0, 'f', 2)
+            .arg(upstreamVideoStats_.value("imageQueueDepth").toInt());
+    }
     const QVariantMap map = videoDiagnostics();
     if (map.value(QStringLiteral("packetCountersSource")) == QStringLiteral("unavailable")) {
         const auto age = map.value(QStringLiteral("frameAgeMs")).toLongLong();
@@ -437,7 +467,7 @@ QVariantMap TerminalController::hudSnapshot() const
 
 QVariantMap TerminalController::mapSnapshot() const
 {
-    if (historicalLocal_) return {}; // Historical XYZ is not calibrated radar/map data.
+    if (historicalLocal_ || upstreamData_) return {}; // World XYZ is not calibrated radar/map data.
     // 本机演练策略：新鲜雷达全量坐标优先；超时回退新鲜裁判坐标。
     // 不合并旧帧，不参与控制许可；正式来源优先级/处罚须等待官方协议。
     if (!radarSnapshot_.isEmpty()) {
@@ -473,12 +503,161 @@ void TerminalController::toggleFallbackMode()
     setAlert(QStringLiteral("模式已切换 · 控制已自动锁定，请人工确认"), true);
 }
 
+bool TerminalController::configureRm2026(const QString& host, quint16 port, unsigned robotId, bool testSource)
+{
+#ifdef RM27_UPSTREAM_BACKEND
+    const QHostAddress address(host);
+    const unsigned role = robotId > 100 ? robotId - 100 : robotId;
+    const bool validId = role == 1 || role == 2 || role == 3 || role == 4 || role == 6 || role == 7;
+    if (!upstreamBackend_ || !validId || !port
+        || address.protocol() != QAbstractSocket::IPv4Protocol || address.isNull()
+        || address.toString() != host || (testSource && host != QStringLiteral("127.0.0.1"))) {
+        setAlert(QStringLiteral("RM2026 需要明确 IPv4、端口和有效机器人 ID；协议测试仅限本机"), true);
+        return false;
+    }
+    const bool unchanged = requestedRobotId_ == robotId && upstreamHost_ == host
+        && upstreamPort_ == port && protocolTestSource_ == testSource;
+    protocolTestSource_ = testSource;
+    offlineDrill_ = false;
+    localPlayback_ = false;
+    requestedRobotId_ = robotId;
+    upstreamHost_ = host;
+    upstreamPort_ = port;
+    connection_->setMqttHost(host);
+    connection_->setMqttPort(port);
+    connection_->setUseMqtt(true);
+    connection_->enableRm2026Profile(testSource);
+    connection_->setOwnTeam(robotId > 100 ? QStringLiteral("blue") : QStringLiteral("red"));
+    const QMap<unsigned, QString> roles{{1,"hero"}, {2,"engineer"}, {3,"infantry3"},
+        {4,"infantry4"}, {6,"aerial"}, {7,"sentry"}};
+    connection_->setOwnRobot(roles.value(role));
+    if (!unchanged) {
+        if (pairing_.targetId()) cancelPairing();
+        stopUpstreamVideo();
+        applyHistoricalSnapshot({}, false);
+        videoFrameStaleTimer_->stop();
+        state_.video = {false, false};
+        decodedFrames_ = 0;
+        videoSource_ = rm27::VideoSource::None;
+        emit frameCountChanged();
+        upstreamBackend_->start(host, port, robotId);
+    }
+    emit connectionProfileApplied();
+    return true;
+#else
+    Q_UNUSED(host); Q_UNUSED(port); Q_UNUSED(robotId); Q_UNUSED(testSource);
+    return false;
+#endif
+}
+
+bool TerminalController::configureRm2026Video(const QHostAddress& bind, quint16 port,
+    const QHostAddress& source, unsigned base, bool testSource)
+{
+#ifdef RM27_UPSTREAM_VIDEO
+    if ((!upstreamData_ && !historicalLocal_) || offlineDrill_ || localPlayback_ || base > 1
+        || (historicalLocal_ && !testSource)
+        || (testSource && (bind != QHostAddress::LocalHost || source != QHostAddress::LocalHost))) return false;
+    if (pairing_.targetId()) cancelPairing();
+    stopUpstreamVideo();
+    upstreamVideo_ = std::make_unique<rm27::video::UpstreamVideo>();
+    if (!upstreamVideo_->start(bind, port, source, base)) {
+        upstreamVideo_.reset();
+        videoStatusLabel_ = QStringLiteral("RM2026 HEVC 监听/解码初始化失败");
+        emit stateChanged(); return false;
+    }
+    upstreamVideoActive_ = true;
+    upstreamVideoTest_ = testSource;
+    if (upstreamHost_.isEmpty()) protocolTestSource_ = testSource;
+    decodedFrames_ = 0; upstreamVideoSerial_ = 0;
+    upstreamVideoReportedId_ = 0;
+    lastVideoFrameAtMs_ = videoStaleAtMs_ = videoRecoveryMs_ = -1;
+    simulationVideoActive_ = false;
+    videoSource_ = rm27::VideoSource::Rm2026Hevc;
+    videoStatusLabel_ = QStringLiteral("RM2026 HEVC 等待首帧 · 未证明硬件配对");
+    state_.video = {false, false}; state_.controlsArmed = false;
+    videoFrameStaleTimer_->start();
+    emit frameCountChanged(); emit stateChanged(); return true;
+#else
+    Q_UNUSED(bind); Q_UNUSED(port); Q_UNUSED(source); Q_UNUSED(base); Q_UNUSED(testSource);
+    return false;
+#endif
+}
+
+void TerminalController::stopUpstreamVideo()
+{
+#ifdef RM27_UPSTREAM_VIDEO
+    if (!upstreamVideoActive_ && !upstreamVideo_) return;
+    upstreamVideo_.reset();
+#else
+    if (!upstreamVideoActive_) return;
+#endif
+    upstreamVideoActive_ = false; upstreamVideoStats_.clear(); upstreamVideoSerial_ = 0;
+    upstreamVideoReportedId_ = 0;
+    videoFrameStaleTimer_->stop(); state_.video = {false, false};
+    if (pairingVideoSink_) pairingVideoSink_->setVideoFrame({});
+    videoSource_ = rm27::VideoSource::None;
+    emit stateChanged();
+}
+
+void TerminalController::pollUpstreamVideo()
+{
+#ifdef RM27_UPSTREAM_VIDEO
+    if (!upstreamVideo_ || !upstreamVideoActive_) return;
+    const auto view = upstreamVideo_->view();
+    upstreamVideoStats_ = view.stats;
+    if (view.serial <= upstreamVideoSerial_ || view.image.isNull() || !pairingVideoSink_) return;
+    const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (view.decodedAtMs < 0 || now - view.decodedAtMs >= 700) return;
+    upstreamVideoSerial_ = view.serial;
+    upstreamVideoStats_.insert("decodeToSubmitMs", now - view.decodedAtMs);
+    pairingVideoSink_->setVideoFrame(QVideoFrame(view.image));
+#endif
+}
+
+QVariantMap TerminalController::refereeDiagnostics() const
+{
+    QVariantMap result;
+#ifdef RM27_UPSTREAM_BACKEND
+    if (upstreamBackend_) result = upstreamBackend_->view().status;
+#endif
+    result.insert("test_source", protocolTestSource_);
+    result.insert("gui_stalls", guiStallCount());
+    if (upstreamVideoActive_) {
+        auto video = videoDiagnostics();
+        video.insert("transport", upstreamVideoStats_);
+        video.insert("fresh", videoConnected());
+        video.insert("stale", videoStale());
+        video.insert("test_source", upstreamVideoTest_);
+        result.insert("video", video);
+    }
+    result.insert("hud", QVariantMap{{"data", hudSnapshot()}, {"hp", hpLabel()},
+        {"fresh", refereeFresh()}, {"armed", controlsArmed()}, {"map", mapSnapshot()},
+        {"messages", eventMessages()}, {"source", linkBannerText()}, {"alert", alertText()}});
+    return result;
+}
+
 void TerminalController::applyHistoricalSnapshot(
     const rm27::historical::rm2026::Snapshot& snapshot, const bool subscribed)
 {
-    if (!historicalLocal_) return;
+    if (!historicalLocal_ && !upstreamData_) return;
+    const auto now = std::chrono::steady_clock::now();
+    const bool identityFresh = subscribed && snapshot.selfConfig
+        && now >= snapshot.selfConfig->at
+        && now - snapshot.selfConfig->at < std::chrono::milliseconds(1500);
+    if (pairing_.targetId()) pairing_.reportIdentity(pairing_.token(),
+        identityFresh ? snapshot.selfConfig->value.robotId : std::nullopt, videoClock_.elapsed());
+    if (upstreamVideoActive_ && identityFresh && snapshot.selfConfig->value.robotId) {
+        const auto reportedId = *snapshot.selfConfig->value.robotId;
+        if ((upstreamVideoReportedId_ && upstreamVideoReportedId_ != reportedId)
+            || (requestedRobotId_ && requestedRobotId_ != reportedId)) {
+            stopUpstreamVideo();
+            videoStatusLabel_ = QStringLiteral("报告身份改变/不匹配 · 已停止旧 HEVC 会话");
+        } else upstreamVideoReportedId_ = reportedId;
+    }
     using namespace rm27::historical::rm2026;
-    state_.mode = localPlayback_ ? TerminalMode::Replay : TerminalMode::Simulation;
+    state_.mode = localPlayback_ ? TerminalMode::Replay : upstreamData_ && !protocolTestSource_
+        ? TerminalMode::HeavyOperator : TerminalMode::Simulation;
     state_.controlsArmed = false;
     state_.controller = {false, false};
     state_.referee = {subscribed, false};
@@ -508,7 +687,8 @@ void TerminalController::applyHistoricalSnapshot(
             const auto& entry = snapshot.recentEvents[i];
             const auto& event = entry.value;
             const int kind = static_cast<int>(event.kind);
-            QString text = QStringLiteral("历史测试 · %1 [%2]")
+            QString text = (upstreamData_ && !protocolTestSource_ ? QStringLiteral("赛事报告 · %1 [%2]")
+                                                                : QStringLiteral("历史测试 · %1 [%2]"))
                 .arg(QString::fromUtf8(eventNames[kind >= 0 && kind < int(eventNames.size()) ? kind : 0]))
                 .arg(event.id ? QString::number(*event.id) : QStringLiteral("未知编号"));
             if (event.param) {
@@ -601,13 +781,16 @@ void TerminalController::applyHistoricalSnapshot(
     }
     refereeGrade_ = rm27::gradeForAge(lastRefereeSampleAtMs_ < 0 ? -1
         : QDateTime::currentMSecsSinceEpoch() - lastRefereeSampleAtMs_);
-    setAlert(QStringLiteral("RM2026 本机合成测试 · %1 · %2 · 禁止下发").arg(
+    setAlert((upstreamData_ && !protocolTestSource_
+        ? QStringLiteral("RM2026 裁判数据 · %1 · %2 · 指令待接入")
+        : QStringLiteral("RM2026 本机合成测试 · %1 · %2 · 禁止下发")).arg(
         !subscribed ? QStringLiteral("链路未连接") : state_.referee.fresh
         ? QStringLiteral("只读数据新鲜") : QStringLiteral("无数据 / 已过期"), gameSummary), !state_.referee.fresh);
 }
 
 void TerminalController::applySimulationSample(const rm27::sim::RefereeSample& sample)
 {
+    if (upstreamData_) return;
     lastRefereeSampleAtMs_ = QDateTime::currentMSecsSinceEpoch();
     refereeGrade_ = rm27::FreshnessGrade::Fresh;
     const bool firstSample = !state_.referee.fresh;
@@ -707,6 +890,10 @@ void TerminalController::applySimulationSample(const rm27::sim::RefereeSample& s
 
 void TerminalController::toggleControlsArmed()
 {
+    if (upstreamData_) {
+        setAlert(QStringLiteral("RM2026 指令链路已接入 · 操作权限与业务门待核验"), true);
+        return;
+    }
     if (state_.controlsArmed) {
         state_.controlsArmed = false;
         setAlert(QStringLiteral("操作控制已锁定"), false);
@@ -723,6 +910,88 @@ void TerminalController::toggleControlsArmed()
     setAlert(QStringLiteral("操作控制已解锁 · 指令仍受规则门约束"), false);
 }
 
+void TerminalController::observeInputWindow(QObject *window)
+{
+    if (!operatorInput_) {
+        operatorInput_ = new rm27::app::OperatorInput(this);
+        connect(operatorInput_, &rm27::app::OperatorInput::frameReady, this, [this] {
+#ifdef RM27_UPSTREAM_BACKEND
+            if (upstreamBackend_) upstreamBackend_->updateInput(operatorInput_->enabled()
+                ? std::optional(operatorInput_->frame()) : std::nullopt, commandContext());
+#endif
+        });
+        connect(operatorInput_, &rm27::app::OperatorInput::captureLost, this, [this] {
+            state_.controlsArmed = false;
+            emit stateChanged();
+        });
+        connect(this, &TerminalController::stateChanged, this, &TerminalController::syncOperatorInput);
+    }
+    operatorInput_->observe(qobject_cast<QWindow *>(window));
+    syncOperatorInput();
+}
+
+void TerminalController::syncOperatorInput()
+{
+    if (!operatorInput_) return;
+    bool allowed = false;
+#ifdef RM27_UPSTREAM_BACKEND
+    const auto context = commandContext();
+    allowed = upstreamBackend_ && rm27::protocol::rm2026::commandBlock(
+        rm27::historical::rm2026::KeyboardMouseCommand{}, context).isEmpty();
+    if (!allowed && upstreamBackend_) upstreamBackend_->updateInput(std::nullopt);
+#endif
+    operatorInput_->setEnabled(allowed);
+}
+
+#ifdef RM27_UPSTREAM_BACKEND
+rm27::historical::rm2026::CommandContext TerminalController::commandContext() const
+{
+    rm27::historical::rm2026::CommandContext context;
+    context.terminal = state_;
+    if (requestedRobotId_) context.requestedId = requestedRobotId_;
+    if (upstreamBackend_) {
+        const auto view = upstreamBackend_->view();
+        if (view.subscribed && view.snapshot.selfConfig) {
+            const auto &identity = *view.snapshot.selfConfig;
+            const auto now = std::chrono::steady_clock::now();
+            context.reportedId = identity.value.robotId;
+            context.identityFresh = now >= identity.at
+                && now - identity.at < std::chrono::milliseconds(1500);
+        }
+    }
+    // Control freshness needs both actual identity and GameStatus, not any HUD topic.
+    context.terminal.phase = MatchPhase::Boot;
+    context.terminal.referee.fresh = false;
+    if (upstreamBackend_) {
+        const auto view = upstreamBackend_->view();
+        const auto now = std::chrono::steady_clock::now();
+        if (view.subscribed && context.identityFresh && view.snapshot.game
+            && now >= view.snapshot.game->at
+            && now - view.snapshot.game->at < std::chrono::milliseconds(1500)
+            && view.snapshot.game->value.paused == std::optional<bool>(false)) {
+            constexpr std::array phases{MatchPhase::Boot, MatchPhase::Preparation,
+                MatchPhase::SelfCheck, MatchPhase::Countdown, MatchPhase::Match, MatchPhase::Ended};
+            const int phase = int(view.snapshot.game->value.phase);
+            if (phase >= 0 && phase < int(phases.size())) {
+                context.terminal.phase = phases[phase];
+                context.terminal.referee.fresh = true;
+            }
+        }
+    }
+    // Source, role, penalty and operation authority are not inferred from MQTT/video.
+    // businessPolicyReady stays false until the corresponding business gate is verified.
+    return context;
+}
+
+rm27::protocol::rm2026::CommandSendResult TerminalController::submitRm2026Command(
+    const rm27::historical::rm2026::Command &command)
+{
+    if (!upstreamBackend_) return {rm27::protocol::rm2026::CommandSendStatus::Disconnected,
+        QStringLiteral("upstream_backend_unavailable")};
+    return upstreamBackend_->submitCommand(command, commandContext());
+}
+#endif
+
 void TerminalController::inspectMotionGate()
 {
     showDecision(rm27::evaluateCommand(state_, CommandKind::RobotMotion));
@@ -730,6 +999,14 @@ void TerminalController::inspectMotionGate()
 
 void TerminalController::enterLocalPlayback()
 {
+    stopUpstreamVideo();
+#ifdef RM27_UPSTREAM_BACKEND
+    if (upstreamBackend_) {
+        upstreamBackend_->stop();
+        upstreamHost_.clear();
+        applyHistoricalSnapshot({}, false);
+    }
+#endif
     if (pairing_.targetId()) cancelPairing();
     lastVideoFrameAtMs_ = videoStaleAtMs_ = videoRecoveryMs_ = -1;
     simulationVideoActive_ = false;
@@ -746,6 +1023,16 @@ void TerminalController::enterLocalPlayback()
 
 void TerminalController::enterSimulationVideo()
 {
+    if (pairing_.targetId()) cancelPairing();
+    stopUpstreamVideo();
+#ifdef RM27_UPSTREAM_BACKEND
+    if (upstreamBackend_) {
+        upstreamBackend_->stop();
+        upstreamHost_.clear();
+        applyHistoricalSnapshot({}, false);
+        offlineDrill_ = true;
+    }
+#endif
     lastVideoFrameAtMs_ = videoStaleAtMs_ = videoRecoveryMs_ = -1;
     decodedFrames_ = 0;
     emit frameCountChanged();
@@ -757,8 +1044,7 @@ void TerminalController::enterSimulationVideo()
     state_.mode = TerminalMode::Simulation;
     state_.video = {false, false};
     state_.controlsArmed = false;
-    videoStatusLabel_ = (historicalVideo_ ? QStringLiteral("等待本机 HEVC 实验首帧 · 解码端口 %1")
-                                        : QStringLiteral("等待本机 UDP 测试图传 · 127.0.0.1:%1"))
+    videoStatusLabel_ = QStringLiteral("等待本机 UDP 测试图传 · 127.0.0.1:%1")
                            .arg(connection_->simulationVideoPort());
     // 首帧尚未到达也要超时；之后由每个有效帧重新开始计时。
     videoFrameStaleTimer_->start();
@@ -782,10 +1068,11 @@ bool TerminalController::offlineDrill() const noexcept
 
 QString TerminalController::linkBannerText() const
 {
-    if (historicalSyntheticVideo_)
-        return QStringLiteral("RM2026 本机合成测试 · MQTT + HEVC · 控制永久禁用");
-    if (historicalVideo_)
-        return QStringLiteral("RM2026 UDP HEVC 图传实验 · 控制永久禁用");
+    if (upstreamData_ && localPlayback_) return QStringLiteral("本地视频回放 · 裁判连接已停止 · 控制锁定");
+    if (upstreamData_ && offlineDrill_) return QStringLiteral("离线演练 · 裁判连接已停止 · 控制锁定");
+    if (upstreamData_) return protocolTestSource_
+        ? QStringLiteral("RM2026 本机协议测试 · 非现场数据 · 控制锁定")
+        : QStringLiteral("RM2026 裁判数据 · VT03/VT13 · 控制锁定");
     if (historicalLocal_)
         return QStringLiteral("RM2026 本机合成测试 · 非真实裁判 · 指令永久禁用");
     if (!offlineDrill_) {
@@ -807,6 +1094,27 @@ QString TerminalController::ownRobotPreference() const
 
 bool TerminalController::applyConnectionProfile()
 {
+    if (upstreamData_) {
+        unsigned robotId = requestedRobotId_;
+        const QMap<QString, unsigned> roles{{"hero", 1}, {"engineer", 2}, {"infantry3", 3},
+                                           {"infantry4", 4}, {"aerial", 6}, {"sentry", 7}};
+        if (!connection_->ownRobot().isEmpty()) {
+            if (!roles.contains(connection_->ownRobot())
+                || (connection_->ownTeam() != "red" && connection_->ownTeam() != "blue")) {
+                setAlert(QStringLiteral("请选择红方或蓝方，以及本车机型"), true);
+                return false;
+            }
+            robotId = roles.value(connection_->ownRobot()) + (connection_->ownTeam() == "blue" ? 100 : 0);
+        }
+        if (!connection_->entryAllowed()) {
+            setAlert(connection_->validationMessage(), true);
+            return false;
+        }
+        const bool testSource = connection_->mqttHost() == QStringLiteral("127.0.0.1");
+        const bool configured = configureRm2026(connection_->mqttHost(), quint16(connection_->mqttPort()), robotId, testSource);
+        if (configured && !testSource) connection_->save();
+        return configured;
+    }
     if (historicalLocal_) {
         setAlert(QStringLiteral("RM2026 本机只读测试 · 不切换链路或保存正式配置"), true);
         return false;
@@ -896,6 +1204,21 @@ bool TerminalController::applyConnectionProfile()
 
 void TerminalController::enterOfflineDrill()
 {
+    if (pairing_.targetId()) cancelPairing();
+    stopUpstreamVideo();
+#ifdef RM27_UPSTREAM_BACKEND
+    if (upstreamBackend_) {
+        upstreamBackend_->stop();
+        upstreamHost_.clear();
+        applyHistoricalSnapshot({}, false);
+        offlineDrill_ = true;
+        state_.mode = TerminalMode::Simulation;
+        connection_->recordOfflineEntry();
+        setAlert(QStringLiteral("离线演练 · 裁判连接已停止 · 指令禁用"), false);
+        emit connectionProfileApplied();
+        return;
+    }
+#endif
     if (!connection_) {
         return;
     }
@@ -925,19 +1248,21 @@ void TerminalController::observeVideoSink(QVideoSink* sink)
     pairingVideoSink_ = sink;
     bindPairingVideoSink();
     if (clearedPairingVideo) emit stateChanged();
-    connect(sink, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame& frame) {
-        if (!frame.isValid()) return;
+    disconnect(videoFrameConnection_);
+    videoFrameConnection_ = connect(sink, &QVideoSink::videoFrameChanged, this, [this, sink](const QVideoFrame& frame) {
+        if (sink != pairingVideoSink_ || !frame.isValid()) return;
         ++decodedFrames_;
         lastVideoFrameAtMs_ = videoClock_.elapsed();
         if (decodedFrames_ == 1) qInfo("LOCAL_VIDEO_FIRST_FRAME");
-        if (simulationVideoActive_) {
+        if (simulationVideoActive_ || upstreamVideoActive_) {
             if (videoStaleAtMs_ >= 0) {
                 videoRecoveryMs_ = lastVideoFrameAtMs_ - videoStaleAtMs_;
                 videoStaleAtMs_ = -1;
             }
             state_.video = {true, true};
-            videoStatusLabel_ = (historicalVideo_ ? QStringLiteral("RM2026 HEVC 实验 · 已解码 %1 帧")
-                                                : QStringLiteral("本机 UDP 图传 · 已解码 %1 帧")).arg(decodedFrames_);
+            videoStatusLabel_ = (upstreamVideoActive_ ? (upstreamVideoTest_
+                ? QStringLiteral("本机 HEVC 测试 · 已呈现 %1 帧") : QStringLiteral("RM2026 HEVC · 已呈现 %1 帧"))
+                : QStringLiteral("本机 UDP 图传 · 已解码 %1 帧")).arg(decodedFrames_);
             videoFrameStaleTimer_->start();
             emit stateChanged();
         }
@@ -949,7 +1274,8 @@ bool TerminalController::beginPairing(const QString& region, int robotId, int ti
 {
     if (localPlayback_ || robotId < 0
         || (region != "global" && region != "japan")
-        || !historicalVideo_ || historicalSyntheticVideo_) return false;
+        || !upstreamVideoActive_ || upstreamVideoTest_ || historicalLocal_ || protocolTestSource_
+        || (requestedRobotId_ && requestedRobotId_ != unsigned(robotId))) return false;
     if (!pairing_.begin(region == "global" ? rm27::PairingRegion::Global : rm27::PairingRegion::Japan,
         static_cast<std::uint32_t>(robotId), videoClock_.elapsed(), timeoutMs)) return false;
     bindPairingVideoSink();
@@ -964,7 +1290,10 @@ void TerminalController::bindPairingVideoSink()
     const auto session = pairing_.token();
     pairingVideoConnection_ = connect(pairingVideoSink_, &QVideoSink::videoFrameChanged, this,
         [this, session](const QVideoFrame& frame) {
-            if (frame.isValid() && pairing_.observeVideo(session, videoClock_.elapsed())) emit stateChanged();
+            const bool changed = frame.isValid() && upstreamVideoActive_ && !upstreamVideoTest_
+                ? pairing_.observeVideo(session, videoClock_.elapsed())
+                : pairing_.videoUnavailable(session, videoClock_.elapsed());
+            if (changed) emit stateChanged();
         });
 }
 
@@ -992,6 +1321,7 @@ bool TerminalController::reportPairingIdentity(qulonglong session, std::optional
 bool TerminalController::pairingDeviceDisconnected(qulonglong session)
 {
     const bool accepted = pairing_.deviceDisconnected(session);
+    if (accepted) stopUpstreamVideo();
     emit stateChanged();
     return accepted;
 }
@@ -1078,7 +1408,7 @@ QVariantList TerminalController::inputActions() const
             {QStringLiteral("group"), QString::fromStdString(action.group)},
             {QStringLiteral("keys"), QString::fromStdString(action.defaultKeys)},
             {QStringLiteral("hint"), QString::fromStdString(rm27::actionHint(action))},
-            {QStringLiteral("isCommand"), action.kind == CommandKind::RobotMotion},
+            {QStringLiteral("isCommand"), action.kind == CommandKind::RobotMotion || action.refereeCommand},
         });
     }
     return list;
@@ -1099,6 +1429,31 @@ bool TerminalController::submitInputAction(const QString& actionId)
     }
 
     const QString hint = QString::fromStdString(rm27::actionHint(*action));
+    if (action->refereeCommand) {
+        // Adapted from MIT RM26_Client e291f2f MainWindow::tryHandleRespawnShortcut.
+        // Copyright (c) 2025-2026 Fudan University EGA Team; third_party/rm26_client/LICENSE.
+        // Events are handled here, never emitted as a presentation-only action.
+        bool queued = false;
+        QString detail;
+#ifdef RM27_UPSTREAM_BACKEND
+        const auto context = commandContext();
+        const auto gate = rm27::evaluateCommand(context.terminal, CommandKind::EventOperation);
+        const auto result = submitRm2026Command(rm27::historical::rm2026::CommonCommand{
+            actionId == QStringLiteral("event.paidRespawn") ? 4u : 3u, 0});
+        queued = result.status == rm27::protocol::rm2026::CommandSendStatus::Queued;
+        if (queued) detail = QStringLiteral("请求已进入发送队列 · 等待确认");
+        else if (!gate.allowed) detail = blockReasonText(gate.block);
+        else if (!context.businessPolicyReady) detail = QStringLiteral("操作权限尚未核验");
+        else if (result.reason == QStringLiteral("insufficient_gold")) detail = QStringLiteral("金币不足");
+        else if (result.reason == QStringLiteral("event_slot_busy")) detail = QStringLiteral("已有赛事请求等待处理");
+        else detail = QStringLiteral("复活资格、费用或链路条件未满足");
+#else
+        detail = QStringLiteral("当前构建不支持 RM2026 赛事操作");
+#endif
+        lastInputDecision_ = hint + (queued ? QStringLiteral(" · ") : QStringLiteral(" · 未发送：")) + detail;
+        setAlert(lastInputDecision_, !queued);
+        return queued;
+    }
     const rm27::GateDecision gate = rm27::evaluateCommand(state_, action->kind);
 
     if (action->kind == CommandKind::RobotMotion && !gate.allowed) {
@@ -1165,6 +1520,8 @@ bool TerminalController::requestVideoSource(const int source)
 
     // 真正的切源由表现层完成（本地回放要用户选文件），完成时经 enter* 记录来源与时刻。
     if (target == rm27::VideoSource::None) {
+        if (pairing_.targetId()) cancelPairing();
+        stopUpstreamVideo();
         videoSource_ = target;
         lastSourceSwitchAtMs_ = now;
     }

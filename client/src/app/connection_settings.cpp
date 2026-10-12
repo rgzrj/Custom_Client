@@ -143,12 +143,21 @@ QString ConnectionSettings::sentinelHost() const { return fromStd(rm27::kOffline
 QString ConnectionSettings::validationMessage() const
 {
     if (issue_ != ProfileIssue::Ok) return fromStd(rm27::profileIssueText(issue_));
+    if (rm2026Profile_ && !entryAllowed_)
+        return QStringLiteral("RM2026 需要启用 MQTT 并填写明确端点；本机协议测试只能使用 127.0.0.1");
     return entryAllowed_ ? QString()
         : QStringLiteral("正式链路适配器未接入；当前仅支持本机模拟或离线演练的环回端点");
 }
 QString ConnectionSettings::entryModeLabel() const { return entryModeLabel_; }
 bool ConnectionSettings::entryAllowed() const { return entryAllowed_; }
-bool ConnectionSettings::formalLinkReady() const { return false; } // No formal transport exists yet.
+bool ConnectionSettings::formalLinkReady() const { return rm2026Profile_ && !rm2026TestSource_; }
+void ConnectionSettings::enableRm2026Profile(bool testSource)
+{
+    rm2026Profile_ = true;
+    rm2026TestSource_ = testSource;
+    updateIssue();
+    emit changed();
+}
 QVariantList ConnectionSettings::interfaces() const { return interfaces_; }
 bool ConnectionSettings::hasWiredLink() const { return hasWiredLink_; }
 QString ConnectionSettings::interfaceSummary() const { return interfaceSummary_; }
@@ -259,6 +268,16 @@ void ConnectionSettings::updateIssue()
     issue_ = rm27::validateProfile(current);
     offlineSentinel_ = rm27::profileUsesOfflineSentinel(current);
     localSimulation_ = rm27::profileIsLocalSimulation(current);
+
+    if (rm2026Profile_) {
+        const QHostAddress broker(mqttHost_);
+        issue_ = broker.protocol() == QAbstractSocket::IPv4Protocol && !broker.isNull()
+            && broker.toString() == mqttHost_ ? ProfileIssue::Ok : ProfileIssue::MqttHostInvalid;
+        entryModeLabel_ = mqttHost_ == "127.0.0.1" ? QStringLiteral("RM2026 本机协议测试") : QStringLiteral("RM2026 裁判数据");
+        entryAllowed_ = issue_ == ProfileIssue::Ok && current.useMqtt
+            && !rm27::isOfflineSentinelHost(current.mqttHost);
+        return;
+    }
 
     if (offlineSentinel_) {
         entryModeLabel_ = QStringLiteral("离线演练");

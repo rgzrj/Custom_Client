@@ -1,8 +1,10 @@
-﻿param(
+param(
     [string]$QtRoot = 'D:\Qt6',
     [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$')]
     [string]$Version = '0.2.0-preview',
     [string]$TestVideo = '',
+    [string]$TestHevc = '',
+    [string]$TestTs = '',
     [string]$ReferenceProject = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -17,11 +19,14 @@ $ctest = $toolchain.ctest
 $ninja = $toolchain.ninja
 $buildDirectory = Join-Path $projectDirectory 'build-release'
 if ($TestVideo) { $TestVideo = (Resolve-Path -LiteralPath $TestVideo).Path }
+if ($TestHevc) { $TestHevc = (Resolve-Path -LiteralPath $TestHevc).Path }
+if ($TestTs) { $TestTs = (Resolve-Path -LiteralPath $TestTs).Path }
 & $cmake -S $projectDirectory -B $buildDirectory -G Ninja "-DCMAKE_PREFIX_PATH=$qtPrefix" `
     "-DCMAKE_MAKE_PROGRAM=$ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON "-DRM27_TEST_VIDEO=$TestVideo" `
-    -DRM27_RM2026_LOCAL_HUD=OFF -DRM27_BUILD_RM2026_PROBE=OFF -DRM27_RM2026_VIDEO_HUD=OFF
+    "-DRM27_TEST_HEVC=$TestHevc" "-DRM27_TEST_TS=$TestTs" `
+    -DRM27_RM2026_LOCAL_HUD=OFF -DRM27_BUILD_RM2026_PROBE=OFF -DRM27_UPSTREAM_BACKEND=ON
 if ($LASTEXITCODE -ne 0) { throw 'Release configuration failed.' }
-& $cmake --build $buildDirectory --parallel
+& $cmake --build $buildDirectory --parallel 3
 if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
 & $ctest --test-dir $buildDirectory --output-on-failure
 if ($LASTEXITCODE -ne 0) { throw 'Release tests failed; no package was created.' }
@@ -46,6 +51,16 @@ foreach ($required in @('Qt6Core.dll', 'Qt6Quick.dll', 'Qt6Multimedia.dll',
 if (-not (Get-ChildItem -LiteralPath $packageDirectory -Filter 'avcodec-*.dll')) {
     throw 'FFmpeg decoder libraries were not deployed.'
 }
+$ffmpegSource = Get-Content -LiteralPath (Join-Path $projectDirectory 'third_party/ffmpeg-7.1.5/SOURCE.json') -Raw | ConvertFrom-Json
+foreach ($runtimeFile in $ffmpegSource.runtime_files.PSObject.Properties) {
+    $runtimePath = Join-Path $packageDirectory $runtimeFile.Name
+    if (-not (Test-Path -LiteralPath $runtimePath)) {
+        Copy-Item -LiteralPath (Join-Path $qtBin $runtimeFile.Name) -Destination $runtimePath
+    }
+    if ((Get-FileHash -LiteralPath $runtimePath).Hash.ToLowerInvariant() -ne $runtimeFile.Value) {
+        throw "FFmpeg runtime differs from the verified 7.1.5 build: $($runtimeFile.Name)"
+    }
+}
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'packaging\README.txt') -Destination $packageDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'packaging\THIRD_PARTY.md') -Destination $packageDirectory
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'packaging\qt.conf') -Destination $packageDirectory
@@ -55,6 +70,28 @@ if ($TestVideo) {
 }
 $licenseDirectory = Join-Path $packageDirectory 'licenses'
 New-Item -ItemType Directory -Path $licenseDirectory | Out-Null
+Get-ChildItem -LiteralPath (Join-Path $buildDirectory 'upstream-licenses') -File |
+    Copy-Item -Destination $licenseDirectory
+Copy-Item -LiteralPath (Join-Path $projectDirectory 'third_party/rm26_client/LICENSE') `
+    -Destination (Join-Path $licenseDirectory 'RM26_Client-LICENSE')
+Copy-Item -LiteralPath (Join-Path $projectDirectory 'third_party/rm26_client/PATCHES.md') `
+    -Destination (Join-Path $licenseDirectory 'RM26_Client-PATCHES.md')
+Copy-Item -LiteralPath (Join-Path $projectDirectory 'third_party/rm26_client/SOURCE.json') `
+    -Destination (Join-Path $licenseDirectory 'RM26_Client-SOURCE.json')
+foreach ($notice in @('COPYING.LGPLv2.1','LICENSE.md','SOURCE.json')) {
+    Copy-Item -LiteralPath (Join-Path $projectDirectory "third_party/ffmpeg-7.1.5/$notice") `
+        -Destination (Join-Path $licenseDirectory "FFmpeg-$notice")
+}
+# Include the pinned source archive and the observed configure line with the DLLs.
+$ffmpegArchive = Join-Path $buildDirectory 'ffmpeg-7.1.5.tar.xz'
+if (-not (Test-Path -LiteralPath $ffmpegArchive)) {
+    Invoke-WebRequest -Uri $ffmpegSource.source -OutFile $ffmpegArchive
+}
+if ((Get-FileHash -LiteralPath $ffmpegArchive).Hash.ToLowerInvariant() -ne $ffmpegSource.sha256) {
+    throw 'FFmpeg source archive checksum differs from the verified source.'
+}
+Copy-Item -LiteralPath $ffmpegArchive -Destination $licenseDirectory
+$ffmpegSource.configuration | Set-Content -LiteralPath (Join-Path $licenseDirectory 'FFmpeg-configure.txt') -Encoding utf8
 Get-ChildItem -LiteralPath (Join-Path $QtRoot 'Licenses') -File | Copy-Item -Destination $licenseDirectory
 Get-ChildItem -LiteralPath (Join-Path $qtPrefix 'sbom') -Filter '*.spdx.json' -File |
     Copy-Item -Destination $licenseDirectory
@@ -71,7 +108,11 @@ Copy-Item -LiteralPath (Join-Path $buildDirectory 'Testing\Temporary\LastTest.lo
     -Destination (Join-Path $packageDirectory 'test-summary.txt')
 Copy-Item -LiteralPath (Join-Path $projectDirectory 'src\core\connection_profile.hpp') `
     -Destination (Join-Path $packageDirectory 'configuration-defaults.hpp')
+# Reuse the same DLL/path verifier for staging and extracted ZIPs.
+& (Join-Path $PSScriptRoot 'check-windows-package.ps1') -PackageDirectory $packageDirectory |
+    Set-Content -LiteralPath (Join-Path $packageDirectory 'package-smoke.txt') -Encoding utf8
 $gitCommit = (& git -C $projectDirectory rev-parse HEAD).Trim()
+$upstreamSource = Get-Content -LiteralPath (Join-Path $projectDirectory 'third_party/rm26_client/SOURCE.json') -Raw | ConvertFrom-Json
 $manifest = [ordered]@{
     version = $Version
     builtAt = $timestamp.ToString('yyyy-MM-ddTHH:mm:sszzz')
@@ -81,11 +122,16 @@ $manifest = [ordered]@{
     qt = $toolchain.qtVersion
     ffmpeg = (Get-ChildItem -LiteralPath $packageDirectory -Filter 'avcodec-*.dll' | Select-Object -First 1).VersionInfo.ProductVersion
     buildType = 'Release'
+    protocol = 'rm2026-v2.0.0'
+    upstream = $upstreamSource.commit
+    schemaSha256 = (Get-FileHash -LiteralPath (Join-Path $projectDirectory 'third_party/rm26_client/src/network/proto/robomaster.proto')).Hash
     defaultConfigurationSha256 = (Get-FileHash -LiteralPath (Join-Path $packageDirectory 'configuration-defaults.hpp')).Hash
-    tests = 'CTest passed; see test-summary.txt. Media playback tests require TestVideo; TS decoding tests require RM27_TEST_TS.'
+    tests = 'CTest passed; see test-summary.txt. Coverage depends on the explicitly supplied fixtures below.'
+    testFixtures = @{ playback = [bool]$TestVideo; hevc = [bool]$TestHevc; transportStream = [bool]$TestTs }
+    portableLaunchVerified = $true
     cleanMachineVerified = $false
 }
-$manifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageDirectory 'manifest.json') -Encoding UTF8
+$manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $packageDirectory 'manifest.json') -Encoding UTF8
 $inventory = @(Get-ChildItem -LiteralPath $packageDirectory -File -Recurse | ForEach-Object {
     [ordered]@{
         path = $_.FullName.Substring($packageDirectory.Length + 1).Replace('\', '/')
