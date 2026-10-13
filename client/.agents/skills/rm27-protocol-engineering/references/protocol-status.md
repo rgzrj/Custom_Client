@@ -1,5 +1,38 @@
 # Protocol status
 
+## Current ordinary client (2026-10-13)
+
+The user-authorized rm2026-v2.0.0 adapter uses official communication V2.0.0
+(20260626) and fixed MIT RM26_Client e291f2f. Ordinary launch supports explicitly
+configured MQTT/HEVC endpoints, including the official 2026 server
+192.168.12.1:3333 and UDP 3334 (section 2, PDF page 45). Development peers remain
+loopback-only; no automatic saved-endpoint connection or network changes.
+
+One MqttManager/NetworkManager/GameData receives 24 verified downlinks after all
+SUBACKs, maps optional/fresh reports into the existing HUD, and decodes native
+HEVC through bounded assembly/FFmpeg/QVideoSink. Eleven typed uplinks share a
+gate, bounded queues, frequency limits and QoS1 deadlines without unknown-delivery
+replay. Ordinary businessPolicyReady, keyboardSourceSelected and mapCalibrated
+remain false; reports, pairing and PUBACK do not grant operator authority.
+
+Accepted card/unknown penalty evidence establishes a persistent backend control
+constraint. Zero, expiry, disconnect, identity changes and a restarted backend
+session do not clear it. Authoritative release, cross-process recovery and full
+video/map/UI masking still need evidence and implementation. RadarInfoToClient
+outer schema, map coordinates/calibration/roles and complete business authority
+remain unresolved. See CLAUDE.md and docs/upstream-migration.md for current tasks.
+
+MapClickInfo is downlink and MapClickCmd uplink (sections 2.2.17–18, PDF 65–66).
+The ordinary client does not subscribe to uplink or obsolete MapClickInfoNotify;
+loopback regression verifies receipt/ACK, alias rejection and no automatic map
+publication. The official [2026-05-18 incident notice](https://www.robomaster.com/zh-CN/resource/pages/announcement/1918)
+documents a loop involving an older shared topic; it does not define a new schema.
+
+The probe/viewer/LOCAL_HUD restrictions below apply only to those optional builds,
+disabled in normal launch/package. They do not describe the ordinary adapter.
+Fixture/loopback/UI/portable-launch evidence is not physical pairing, exclusive
+input selection, event execution, actual 1080p60/75Hz or clean-Windows acceptance.
+
 ## Confirmed transport-level facts
 
 The RM2027 preview states:
@@ -9,7 +42,7 @@ The RM2027 preview states:
 - Physical connection: wired 1 GbE RJ45.
 - Wireless transmit and receive devices are prohibited in the custom terminal.
 
-## Not yet defined in the repository
+## Not yet confirmed for final RM2027
 
 - Broker address and authentication.
 - MQTT topics, QoS, retained-message behavior, session settings, and keepalive.
@@ -20,14 +53,14 @@ The RM2027 preview states:
 
 The RM2026 rule manual does not fill these gaps. It describes allowed behavior and refers protocol structure to a separate communication protocol.
 
-## Available historical communication protocol
+## Separate historical probes and experimental HUD
 
 The user supplied `规则/RoboMaster 2026 机甲大师高校系列赛通信协议 V2.0.0（20260626）.pdf`
 and explicitly authorized a separately versioned 2026 reference implementation.
 Section 2 (PDF page 45) defines the 2026 MQTT endpoints/topics and UDP header;
 section 2.2 supplies message definitions. These do NOT confirm RM2027 values.
 See `contracts/rm2026-v2.0.0/README.md` for exact sources and unresolved issues.
-Current scope is offline schemas/parsing/freshness, video assembly tests and
+The optional probe scope is offline schemas/parsing/freshness, video assembly tests and
 separate Python and native C++ read-only MQTT references restricted to literal
 127.0.0.1. Native dependencies are source-built with the pinned MinGW toolchain;
 RM27_BUILD_RM2026_PROBE defaults OFF and is not linked into the normal terminal. The
@@ -49,8 +82,8 @@ Position yaw is degrees/north zero, not gimbal yaw; missing axes/owner stay
 absent. Do not infer XYZ units/origin/map transforms or a self-robot fallback;
 robot_id ownership is documented as effective only for the gimbal-operator
 client. CustomByteBlock and unselected fields remain raw diagnostics.
-No external referee connection, decoding, production HUD mapping or control publication
-is enabled; Python is not a native runtime/release dependency. Both reject DUP
+Those separate probes do not enable external referee connection, decoding,
+production HUD mapping or control publication; Python is not a native runtime/release dependency. Both reject DUP
 data conservatively, so application-level at-least-once delivery is not claimed.
 The native pinned Paho packet factory now checks type/Remaining Length before
 body allocation, structural lengths before constructors, and complete-packet
@@ -93,7 +126,7 @@ again; separate non-DUP arrivals may have the same type/parameter. Expiry remove
 the latest fresh sample but not labelled history; identity/session changes and
 disconnect clear history. Evictions are counted; completeness is not claimed.
 
-## Allowed work before the protocol arrives
+## Work awaiting final RM2027 definitions
 
 - Define adapter interfaces and domain types without official field names.
 - Build a simulator namespace such as `sim.v1` that cannot be mistaken for the official protocol.

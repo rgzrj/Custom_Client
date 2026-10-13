@@ -143,6 +143,33 @@ class Rig:
 
 
 class BackendChecks(unittest.TestCase):
+    def test_map_reports_do_not_echo_or_accept_uplink_aliases(self):
+        rig = Rig(4000)
+        self.addCleanup(rig.close)
+        rig.accept(); rig.subscriptions()
+        self.assertNotIn("MapClickCmd", TOPICS)
+        self.assertNotIn("MapClickInfoNotify", TOPICS)
+        rig.wait(lambda r: r.get("link") == "subscribed")
+        # Fixed §2.2.17 wire sample: explicit map_x=1.25 and map_y=2.5.
+        payload = bytes.fromhex("3d0000a03f4500002040")
+        for mid in (100, 101, 102):
+            publish(rig.stream, "MapClickInfo", payload, mid=mid)
+            # Reception needs PUBACK, never a new map command publication.
+            self.assertEqual(read_packet(rig.stream), (0x40, struct.pack("!H", mid)))
+        report = rig.wait(lambda r: r.get("accepted") == 3)
+        self.assertEqual(report["state"]["map_click_report"], {"x": 1.25, "y": 2.5})
+        # Uplink and obsolete bidirectional names must not overwrite the downlink.
+        for topic, mid in (("MapClickCmd", 103), ("MapClickInfoNotify", 104)):
+            publish(rig.stream, topic, bytes.fromhex("3d0000c842"), mid=mid)
+            self.assertEqual(read_packet(rig.stream), (0x40, struct.pack("!H", mid)))
+        report = rig.wait(lambda r: r.get("rejected") == 2)
+        self.assertEqual(report["accepted"], 3)
+        self.assertEqual(report["state"]["map_click_report"], {"x": 1.25, "y": 2.5})
+        self.assertFalse(report["hud"]["armed"])
+        rig.stream.settimeout(0.6)
+        with self.assertRaises(socket.timeout):
+            read_packet(rig.stream)  # No delayed automatic PUBLISH either.
+
     def test_visible_diagnostics_follow_reports_and_disconnect(self):
         rig = Rig(5500)
         self.addCleanup(rig.close)

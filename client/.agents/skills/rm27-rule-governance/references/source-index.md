@@ -26,6 +26,15 @@ From the RM2026 rule manual, sections 5.7 and 6.5:
 
 ## Project decisions
 
+- Current ordinary implementation (2026-10-13): the user-authorized fixed
+  RM26_Client backend supplies explicit rm2026-v2.0.0 MQTT/HEVC reception,
+  24 verified downlinks, the existing HUD and 11 gated typed uplinks. Normal
+  endpoints are explicitly configurable; loopback confinement belongs to the
+  development peers and optional probes. Ordinary controls remain closed.
+  See CLAUDE.md and docs/upstream-migration.md for the current scope. The earlier
+  probe/experimental-HUD descriptions below apply only to those separate builds,
+  not the ordinary executable.
+
 - The user supplied the RM2026 V2.0.0 communication protocol (20260626) and
   authorized a historical reference implementation. The offline first phase
   and subsequent Python/native C++ local-only read-only references are documented
@@ -70,10 +79,20 @@ From the RM2026 rule manual, sections 5.7 and 6.5:
   mechanism (section 5.6.5, PDF 117-118); deployment loss of video still allows
   map/custom UI (section 5.6.1, PDF 112-113). Do not apply one shared mask timer.
   Unknown: PenaltyInfo (communication PDF 63-64) does not establish an authoritative
-  release, repeated-update or reconnect recovery strategy. No enforcement/release
-  is implemented; absent/stale/zero reports must not clear an active penalty.
+  release, repeated-update or reconnect recovery strategy. The ordinary backend
+  has a persistent penaltyReleaseUnverified control constraint; absent/stale/zero
+  reports and a restarted backend session do not clear it. Cross-process recovery,
+  authoritative release and full video/map/UI masking remain unimplemented.
   RadarInfoToClient (communication PDF 66-67) remains contradictory; obtain the
   official compilable schema/correction and map calibration before real fusion.
+
+- Official historical incident evidence: the
+  [2026-05-18 map-message-loop notice](https://www.robomaster.com/zh-CN/resource/pages/announcement/1918)
+  reports a shared MapClickInfoNotify topic causing repeated actions. This
+  establishes the need to verify receive/publish separation, not permission to
+  reuse that obsolete topic. V2.0.0 sections 2.2.17–18 define MapClickInfo downlink
+  and MapClickCmd uplink. A loopback regression checks ordinary receipt/ACK and
+  rejection of the uplink/obsolete names without automatic publication.
 
 - MVP role: heavy-robot operator terminal only.
 - Windows first, with a cross-platform core.
