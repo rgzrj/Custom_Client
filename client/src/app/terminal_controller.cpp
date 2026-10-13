@@ -615,6 +615,61 @@ void TerminalController::pollUpstreamVideo()
 #endif
 }
 
+QString TerminalController::refereeDiagnosticsLabel() const
+{
+#ifdef RM27_UPSTREAM_BACKEND
+    if (upstreamBackend_ && !localPlayback_ && !offlineDrill_) {
+        const auto view = upstreamBackend_->view();
+        const auto &status = view.status;
+        const auto reports = status.value("reports").toMap();
+        const auto identity = reports.value("RobotStaticStatus").toMap().value("fields").toMap().value("robot_id");
+        const QString requested = status.value("client_id").toString();
+        QString text = QStringLiteral("%1 · %2\n请求 ID %3 · 报告 ID %4（仅新鲜报告，非授权）\n全部订阅确认 %5 · 新鲜主题 %6/24 · 接受 %7 / 拒绝 %8")
+            .arg(protocolTestSource_ ? QStringLiteral("本机协议测试") : QStringLiteral("RM2026 MQTT"),
+                 view.subscribed ? QStringLiteral("订阅已建立") : status.value("mqtt_connected").toBool()
+                 ? QStringLiteral("连接已建立，等待全部订阅确认") : requested.isEmpty()
+                 ? QStringLiteral("等待连接配置") : QStringLiteral("未连接 / 重试中"),
+                 requested.isEmpty() ? QStringLiteral("--") : requested,
+                 identity.isValid() ? identity.toString() : QStringLiteral("--"))
+            .arg(view.subscribed ? QStringLiteral("24/24") : QStringLiteral("未完成"))
+            .arg(reports.size()).arg(status.value("accepted").toULongLong()).arg(status.value("rejected").toULongLong());
+        const auto missing = status.value("missing_or_stale_topics").toStringList();
+        if (!missing.isEmpty()) text += QStringLiteral("\n未收到或已过期：") + missing.join(QStringLiteral("、"));
+        text += QStringLiteral("\n未订阅：RadarInfoToClient（外层定义待核验）");
+        const auto error = status.value("error").toString();
+        if (!error.isEmpty()) text += QStringLiteral("\n最近错误：") + error.left(256);
+        return text;
+    }
+#endif
+    return localPlayback_ ? QStringLiteral("本地回放 · 裁判连接已停止")
+        : offlineDrill_ ? QStringLiteral("离线演练 · 裁判连接已停止")
+        : QStringLiteral("本机模拟 / 历史参考 · 非正式裁判链路");
+}
+
+QString TerminalController::commandDeliveryLabel() const
+{
+#ifdef RM27_UPSTREAM_BACKEND
+    if (upstreamBackend_ && !localPlayback_ && !offlineDrill_) {
+        const auto commands = upstreamBackend_->view().status.value("commands").toMap();
+        const auto status = commands.value("event_status").toString();
+        QString event = QStringLiteral("暂无请求");
+        if (status == "awaiting_worker") event = QStringLiteral("等待工作线程发送");
+        else if (status == "awaiting_puback") event = QStringLiteral("已提交传输，等待 MQTT 确认");
+        else if (status == "broker_acknowledged") event = QStringLiteral("MQTT 已确认收到，执行未确认");
+        else if (status == "delivery_unknown") event = QStringLiteral("送达未知，不自动重发");
+        else if (status == "event_expired") event = QStringLiteral("等待超时，未发送");
+        else if (status == "event_cancelled") event = QStringLiteral("已取消，未发送");
+        else if (!status.isEmpty()) event = QStringLiteral("未发送：") + status.left(128);
+        return QStringLiteral("最近入队赛事请求：%1\n会话传输汇总（含键鼠）：已提交 %2 · MQTT 确认 %3 · 送达未知 %4 · 在途 %5\n传输确认不代表赛事接受或机器人执行。")
+            .arg(event).arg(commands.value("admitted").toULongLong())
+            .arg(commands.value("broker_acknowledged").toULongLong())
+            .arg(commands.value("delivery_unknown").toULongLong())
+            .arg(commands.value("in_flight").toUInt());
+    }
+#endif
+    return QStringLiteral("当前来源不提供赛事发送反馈");
+}
+
 QVariantMap TerminalController::refereeDiagnostics() const
 {
     QVariantMap result;
@@ -635,7 +690,8 @@ QVariantMap TerminalController::refereeDiagnostics() const
         {"buffer_energy", bufferEnergyLabel()}, {"heat", barrelHeatLabel()},
         {"power", chassisPowerLabel()}, {"physical_ammo", ammoLabel()},
         {"fresh", refereeFresh()}, {"armed", controlsArmed()}, {"map", mapSnapshot()},
-        {"messages", eventMessages()}, {"source", linkBannerText()}, {"alert", alertText()}});
+        {"messages", eventMessages()}, {"source", linkBannerText()}, {"alert", alertText()},
+        {"referee_diagnostics", refereeDiagnosticsLabel()}, {"command_delivery", commandDeliveryLabel()}});
     return result;
 }
 
@@ -940,6 +996,7 @@ void TerminalController::observeInputWindow(QObject *window)
 void TerminalController::syncOperatorInput()
 {
     if (!operatorInput_) return;
+    operatorInput_->setMouseSensitivity(connection_->mouseSensitivity());
     bool allowed = false;
 #ifdef RM27_UPSTREAM_BACKEND
     const auto context = commandContext();

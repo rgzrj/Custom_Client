@@ -133,7 +133,7 @@ ColumnLayout {
     }
     Caption {
         Layout.fillWidth: true
-        text: "灵敏度仅保存预设，真实控制待协议接入。\n设置立即生效；保存后下次启动继续使用。"
+        text: "灵敏度用于鼠标控制量；Windows 采用原始相对移动。\n控制权限核验后生效；保存后下次启动继续使用。"
         color: theme.textMuted
         wrapMode: Text.WordWrap
         font.pixelSize: theme.fsMicro

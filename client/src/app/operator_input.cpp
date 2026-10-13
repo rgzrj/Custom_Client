@@ -5,8 +5,16 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QGuiApplication>
 #include <algorithm>
+#include <cmath>
 #include <limits>
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 namespace rm27::app {
 namespace {
@@ -29,9 +37,89 @@ std::int32_t add(std::int32_t a, qint64 b) {
 }
 }
 OperatorInput::OperatorInput(QObject *parent) : QObject(parent) {
+    QCoreApplication::instance()->installNativeEventFilter(this);
     timer_.setTimerType(Qt::PreciseTimer);
     timer_.setInterval(14); // <=75Hz; sender still applies its monotonic limit.
     connect(&timer_, &QTimer::timeout, this, &OperatorInput::flush);
+}
+OperatorInput::~OperatorInput() {
+    releaseMouse();
+    if (QCoreApplication::instance()) QCoreApplication::instance()->removeNativeEventFilter(this);
+}
+bool OperatorInput::captureMouse() {
+#ifdef Q_OS_WIN
+    if (QGuiApplication::platformName() == "windows") {
+        if (!window_->isVisible() || !window_->isActive()) return false;
+        const auto hwnd = reinterpret_cast<HWND>(window_->winId());
+        if (GetForegroundWindow() != hwnd) return false;
+        // Registration is off here, so discard only the previous capture's queued input.
+        MSG pending;
+        while (PeekMessage(&pending, hwnd, WM_INPUT, WM_INPUT, PM_REMOVE))
+            DefWindowProc(pending.hwnd, pending.message, pending.wParam, pending.lParam);
+        const RAWINPUTDEVICE mouse{1, 2, 0, hwnd};
+        if (!RegisterRawInputDevices(&mouse, 1, sizeof(mouse))) return false;
+        if (!window_->setMouseGrabEnabled(true)) {
+            const RAWINPUTDEVICE remove{1, 2, RIDEV_REMOVE, nullptr};
+            RegisterRawInputDevices(&remove, 1, sizeof(remove));
+            return false;
+        }
+        relativeMouseCaptured_ = true;
+        previousCursor_ = window_->cursor();
+        window_->setCursor(Qt::BlankCursor);
+    }
+#endif
+    return true;
+}
+void OperatorInput::releaseMouse() {
+    if (!relativeMouseCaptured_) return;
+#ifdef Q_OS_WIN
+    const RAWINPUTDEVICE remove{1, 2, RIDEV_REMOVE, nullptr};
+    RegisterRawInputDevices(&remove, 1, sizeof(remove));
+#endif
+    relativeMouseCaptured_ = false;
+    if (window_) {
+        window_->setMouseGrabEnabled(false);
+        window_->setCursor(previousCursor_);
+    }
+}
+void OperatorInput::setMouseSensitivity(int percent) {
+    percent = std::clamp(percent, 10, 300);
+    if (sensitivity_ == percent) return;
+    sensitivity_ = percent;
+    frame_.x = frame_.y = 0;
+    remainderX_ = remainderY_ = 0;
+    havePosition_ = false;
+}
+void OperatorInput::addMouseDelta(qreal x, qreal y) {
+    // Keep hundredths until consumed; 10 one-count moves at 10% still make one count.
+    const qreal scaledX = x * sensitivity_ + remainderX_;
+    const qreal scaledY = -y * sensitivity_ + remainderY_;
+    const qint64 wholeX = qint64(std::trunc(scaledX / 100)), wholeY = qint64(std::trunc(scaledY / 100));
+    remainderX_ = scaledX - wholeX * 100.0; remainderY_ = scaledY - wholeY * 100.0;
+    frame_.x = add(frame_.x, wholeX); frame_.y = add(frame_.y, wholeY);
+}
+bool OperatorInput::nativeEventFilter(const QByteArray &, void *message, qintptr *) {
+#ifdef Q_OS_WIN
+    if (!enabled_ || !relativeMouseCaptured_ || !window_) return false;
+    const auto *msg = static_cast<MSG *>(message);
+    if (msg->message != WM_INPUT || msg->hwnd != reinterpret_cast<HWND>(window_->winId())
+        || GET_RAWINPUT_CODE_WPARAM(msg->wParam) != RIM_INPUT) return false;
+    if (GetForegroundWindow() != msg->hwnd) {
+        setEnabled(false); emit captureLost(); return false;
+    }
+    RAWINPUT input{};
+    UINT size = sizeof(input);
+    if (GetRawInputData(reinterpret_cast<HRAWINPUT>(msg->lParam), RID_INPUT, &input, &size,
+                        sizeof(RAWINPUTHEADER)) == UINT(-1)) {
+        setEnabled(false); emit captureLost(); return false;
+    }
+    if (input.header.dwType == RIM_TYPEMOUSE && !(input.data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE))
+        addMouseDelta(input.data.mouse.lLastX, input.data.mouse.lLastY);
+#else
+    Q_UNUSED(message);
+#endif
+    // Windows/Qt still performs WM_INPUT cleanup; legacy moves are ignored below.
+    return false;
 }
 void OperatorInput::observe(QWindow *window) {
     setEnabled(false);
@@ -52,13 +140,16 @@ void OperatorInput::observe(QWindow *window) {
 void OperatorInput::clear() {
     frame_ = {};
     havePosition_ = false;
+    remainderX_ = remainderY_ = 0;
     quarantinedKeys_ |= rawKeys_;
     quarantinedButtons_ |= rawButtons_;
 }
 void OperatorInput::setEnabled(bool enabled) {
     enabled = enabled && window_ && focused_;
     if (enabled_ == enabled) return;
+    if (enabled && !captureMouse()) { clear(); emit captureLost(); return; }
     enabled_ = enabled;
+    if (!enabled_) releaseMouse();
     clear();
     if (enabled_) timer_.start(); else timer_.stop();
     emit frameReady();
@@ -72,6 +163,9 @@ bool OperatorInput::eventFilter(QObject *watched, QEvent *event) {
     if (watched != window_) return false;
     switch (event->type()) {
     case QEvent::WindowActivate: focused_ = true; return false;
+    case QEvent::UngrabMouse:
+        if (enabled_) { setEnabled(false); clear(); emit captureLost(); }
+        return false;
     case QEvent::WindowDeactivate: case QEvent::FocusOut:
     case QEvent::Hide: case QEvent::Close:
         focused_ = false; setEnabled(false); clear(); emit captureLost(); return false;
@@ -107,10 +201,10 @@ bool OperatorInput::eventFilter(QObject *watched, QEvent *event) {
     }
     case QEvent::MouseMove: {
         if (!enabled_) return false;
+        if (relativeMouseCaptured_) return true;
         const auto pos = static_cast<QMouseEvent *>(event)->position();
         if (havePosition_) {
-            frame_.x = add(frame_.x, qRound64(pos.x() - position_.x()));
-            frame_.y = add(frame_.y, -qRound64(pos.y() - position_.y()));
+            addMouseDelta(pos.x() - position_.x(), pos.y() - position_.y());
         }
         position_ = pos; havePosition_ = true; return true;
     }

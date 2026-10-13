@@ -37,10 +37,12 @@ struct UpstreamBackend::Impl {
     quint64 admitted = 0, acknowledged = 0, unknown = 0;
     QString commandStatus;
     QString eventStatus;
+    int eventToken = 0; // Only the most recently admitted event; input ACKs cannot update it.
     quint64 eventsRejected = 0;
 
     // Called under mutex. No stale input is retained across source/session/gate changes.
     void clearInput() {
+        if (event) eventStatus = "event_cancelled";
         input.reset(); release.reset(); event.reset(); desired = {};
         inputOpen = false;
         inputContext = {};
@@ -97,7 +99,10 @@ struct UpstreamBackend::Impl {
                 || result.status == CommandSendStatus::InFlightLimit) return;
             auto &selected = slot == 1 ? release : slot == 2 ? event : input;
             if (selected && selected->serial == next->serial) selected.reset();
-            if (slot == 2) eventStatus = result.reason;
+            if (slot == 2) {
+                eventStatus = result.reason;
+                eventToken = result.status == CommandSendStatus::Queued ? result.token : 0;
+            }
             if (result.status != CommandSendStatus::Queued) {
                 if (slot == 2) ++eventsRejected;
                 // Business rejection of an event does not revoke valid ongoing input.
@@ -148,7 +153,7 @@ void UpstreamBackend::start(const QString &host, quint16 port, unsigned robotId)
         p->error.clear();
         p->admitted = p->acknowledged = p->unknown = 0;
         p->commandStatus.clear();
-        p->eventStatus.clear(); p->eventsRejected = 0;
+        p->eventStatus.clear(); p->eventToken = 0; p->eventsRejected = 0;
         // Keep the single state owner across endpoint/identity/source changes.
         // ponytail: backend-wide constraint; per-robot release needs official evidence.
         if (!p->data) p->data = new GameData(p->worker);
@@ -167,10 +172,15 @@ void UpstreamBackend::start(const QString &host, quint16 port, unsigned robotId)
             else { std::lock_guard lock(p->mutex); p->clearInput(); }
         });
         QObject::connect(p->network, &RM::NetworkManager::commandDelivery, p->worker,
-                         [p](int, bool brokerAcknowledged) {
+                         [p, generation](int token, bool brokerAcknowledged) {
             std::lock_guard lock(p->mutex);
+            if (generation != p->generation) return;
             if (brokerAcknowledged) ++p->acknowledged; else ++p->unknown;
             p->commandStatus = brokerAcknowledged ? "broker_acknowledged" : "delivery_unknown";
+            if (token == p->eventToken) {
+                p->eventStatus = p->commandStatus;
+                p->eventToken = 0;
+            }
         });
         p->inputTimer = new QTimer(p->worker);
         p->inputTimer->setTimerType(Qt::PreciseTimer);
@@ -192,6 +202,11 @@ void UpstreamBackend::start(const QString &host, quint16 port, unsigned robotId)
                 {"accepted", qulonglong(p->data->officialAccepted())}, {"rejected", qulonglong(p->data->officialRejected())},
                 {"reports", view.subscribed ? p->data->officialReports() : QVariantMap{}},
                 {"state", snapshotJson(view.snapshot).toVariantMap()}};
+            auto missing = GameData::officialTopics();
+            const auto reports = view.status.value("reports").toMap();
+            for (auto it = reports.cbegin(); it != reports.cend(); ++it) missing.removeAll(it.key());
+            view.status.insert("missing_or_stale_topics", missing);
+            view.status.insert("mqtt_connected", p->network->isMqttConnected());
             std::lock_guard lock(p->mutex);
             if (generation == p->generation) {
                 view.status.insert("commands", QVariantMap{
@@ -275,6 +290,8 @@ CommandSendResult UpstreamBackend::submitCommand(const Command &command,
     if (*businessBlock) return {CommandSendStatus::Blocked, QString::fromLatin1(businessBlock)};
     if (impl_->event) return {CommandSendStatus::InFlightLimit, "event_slot_busy"};
     impl_->event = Impl::Pending{command, context, Clock::now(), ++impl_->serial};
+    impl_->eventStatus = "awaiting_worker";
+    impl_->eventToken = 0;
     return {CommandSendStatus::Queued, "awaiting_worker"};
 }
 }

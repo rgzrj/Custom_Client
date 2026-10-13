@@ -166,6 +166,9 @@ if(RM27_BUILD_APP)
             Qt6::QuickControls2
             Qt6::Multimedia
         )
+        if(WIN32)
+            target_link_libraries(rm27_terminal PRIVATE user32)
+        endif()
         if(RM27_HAS_UPSTREAM)
             target_link_libraries(rm27_terminal PRIVATE rm26_upstream)
         elseif(TARGET rm26_hevc)
@@ -198,6 +201,9 @@ if(RM27_BUILD_APP)
             )
             target_link_libraries(rm27_playback_tests PRIVATE rm27_core rm27_runtime_log Qt6::Test
                 Qt6::Network Qt6::Quick Qt6::QuickControls2 Qt6::Multimedia)
+            if(WIN32)
+                target_link_libraries(rm27_playback_tests PRIVATE user32)
+            endif()
             if(TARGET rm26_hevc)
                 target_link_libraries(rm27_playback_tests PRIVATE rm26_hevc)
             endif()
@@ -249,10 +255,21 @@ if(RM27_BUILD_APP)
             add_test(NAME rm27_historical_hud_tests COMMAND rm27_playback_tests
                 historicalHudPresentation historicalGamePresentation)
             add_test(NAME rm27_ui_layout_tests COMMAND rm27_playback_tests uiHierarchy)
-            add_test(NAME rm27_operator_input_tests COMMAND rm27_playback_tests operatorInputLifecycle respawnShortcuts)
-            add_test(NAME rm27_official_action_ui_tests COMMAND rm27_playback_tests officialActionPanel)
+            add_test(NAME rm27_operator_input_tests COMMAND rm27_playback_tests operatorInputLifecycle operatorInputSensitivity respawnShortcuts)
+            if(WIN32)
+                add_test(NAME rm27_native_mouse_tests COMMAND rm27_playback_tests nativeMouseCapture
+                    -o "${CMAKE_CURRENT_BINARY_DIR}/native-mouse-test.txt,txt")
+                set_tests_properties(rm27_native_mouse_tests PROPERTIES
+                    ENVIRONMENT "QT_QPA_PLATFORM=windows" TIMEOUT 20)
+            endif()
+            add_test(NAME rm27_official_action_ui_tests COMMAND rm27_playback_tests officialActionPanel
+                -o "${CMAKE_CURRENT_BINARY_DIR}/official-action-ui-test.txt,txt")
             set_tests_properties(rm27_official_action_ui_tests PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=windows" TIMEOUT 15)
+            add_test(NAME rm27_official_action_hidpi_tests COMMAND rm27_playback_tests officialActionPanel
+                -o "${CMAKE_CURRENT_BINARY_DIR}/official-action-hidpi-test.txt,txt")
+            set_tests_properties(rm27_official_action_hidpi_tests PROPERTIES
+                ENVIRONMENT "QT_QPA_PLATFORM=windows;QT_SCALE_FACTOR=2" TIMEOUT 30)
             set_tests_properties(rm27_operator_input_tests PROPERTIES
                 ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 15)
             set_tests_properties(rm27_ui_layout_tests PROPERTIES

@@ -61,6 +61,7 @@ class Peer {
 public:
     struct Received { unsigned char header; QByteArray topic, payload; };
     std::atomic<bool> stopped{false}, acknowledge{true}, refresh{false}, paused{false};
+    std::atomic<bool> dropEventAcks{false};
     std::atomic<unsigned> reportedId{3}, ackFault{0}, ackDelayMs{0};
     std::atomic<unsigned> alive{1}, stage{4}, runeCode{1}, gold{100}, canFree{1}, canPay{1};
     std::atomic<int> penaltyType{-1}; // Absent unless explicitly injected by this test peer.
@@ -155,6 +156,7 @@ public:
                         { std::lock_guard lock(mutex);
                             received.push_back({header, body.mid(2, n), body.mid(4 + n)}); }
                         report();
+                        if (dropEventAcks && body.mid(2, n) != "KeyboardMouseControl") continue;
                         if (acknowledge) {
                             std::this_thread::sleep_for(std::chrono::milliseconds(ackDelayMs.load()));
                             auto ack = body.mid(2 + n, 2);
@@ -1096,6 +1098,7 @@ private slots:
         QCOMPARE(backend.submitCommand(SentryCommand{12}, c).reason, QString("sentry_operator_unverified"));
         QVERIFY(backend.submitCommand(RuneCommand{1}, c).status == CommandSendStatus::Queued);
         QTRY_COMPARE(peer.count(), std::size_t(1));
+        QTRY_COMPARE(backend.view().status["commands"].toMap()["event_status"].toString(), QString("broker_acknowledged"));
         peer.alive = 2; peer.refresh = true;
         QTRY_VERIFY(backend.view().snapshot.selfConfig
             && backend.view().snapshot.selfConfig->value.aliveState == std::optional<std::uint32_t>(2));
@@ -1116,6 +1119,26 @@ private slots:
         QCOMPARE(backend.submitCommand(CommonCommand{4, 0}, c).reason, QString("insufficient_gold"));
         QTest::qWait(150); QCOMPARE(peer.count(), std::size_t(3));
         backend.stop();
+    }
+    void eventDeliveryIsSeparateFromInput() {
+        Peer peer; UpstreamBackend backend;
+        peer.dropEventAcks = true;
+        backend.start("127.0.0.1", peer.port, 3);
+        QTRY_VERIFY(backend.view().snapshot.selfConfig && backend.view().snapshot.game && backend.view().snapshot.rune);
+        const auto c = permittedFixture();
+        QVERIFY(backend.submitCommand(RuneCommand{1}, c).status == CommandSendStatus::Queued);
+        QTRY_COMPARE(peer.count(), std::size_t(1));
+        QTRY_COMPARE(backend.view().status["commands"].toMap()["event_status"].toString(), QString("awaiting_puback"));
+        QTimer producer;
+        connect(&producer, &QTimer::timeout, this, [&] { backend.updateInput(KeyboardMouseCommand{}, c); });
+        producer.start(30);
+        QTRY_VERIFY(backend.view().status["commands"].toMap()["broker_acknowledged"].toUInt() > 0);
+        // ACKs for subsequent keyboard frames must not confirm the unacknowledged event.
+        QCOMPARE(backend.view().status["commands"].toMap()["event_status"].toString(), QString("awaiting_puback"));
+        QTRY_COMPARE(backend.view().status["commands"].toMap()["event_status"].toString(), QString("delivery_unknown"));
+        producer.stop();
+        backend.stop();
+        QVERIFY(backend.view().status.isEmpty());
     }
     void latestInputAndRelease() {
         Peer peer; UpstreamBackend backend;

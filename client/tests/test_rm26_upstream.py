@@ -143,6 +143,30 @@ class Rig:
 
 
 class BackendChecks(unittest.TestCase):
+    def test_visible_diagnostics_follow_reports_and_disconnect(self):
+        rig = Rig(5500)
+        self.addCleanup(rig.close)
+        rig.accept(); rig.subscriptions()
+        report = rig.wait(lambda r: r.get("link") == "subscribed")
+        self.assertEqual(set(report["missing_or_stale_topics"]), set(TOPICS))
+        publish(rig.stream, "RobotStaticStatus", message("RobotStaticStatus", {"robot_id": 3}, True))
+        publish(rig.stream, "RobotDynamicStatus", message("RobotDynamicStatus", {"current_buffer_energy": 0}, True))
+        report = rig.wait(lambda r: "新鲜主题 2/24" in r["hud"]["referee_diagnostics"])
+        label = report["hud"]["referee_diagnostics"]
+        self.assertIn("本机协议测试", label)
+        self.assertIn("请求 ID 3 · 报告 ID 3", label)
+        self.assertIn("全部订阅确认 24/24", label)
+        self.assertIn("未订阅：RadarInfoToClient", label)
+        self.assertEqual(len(report["missing_or_stale_topics"]), 22)
+        self.assertIn("暂无请求", report["hud"]["command_delivery"])
+        report = rig.wait(lambda r: "新鲜主题 0/24" in r["hud"]["referee_diagnostics"])
+        self.assertIn("报告 ID --", report["hud"]["referee_diagnostics"])
+        self.assertEqual(set(report["missing_or_stale_topics"]), set(TOPICS))
+        rig.stream.shutdown(socket.SHUT_RDWR); rig.stream.close(); rig.stream = None
+        report = rig.wait(lambda r: r.get("link") == "offline" and "未连接 / 重试中" in r["hud"]["referee_diagnostics"])
+        self.assertIn("全部订阅确认 未完成", report["hud"]["referee_diagnostics"])
+        self.assertFalse(report["hud"]["armed"])
+
     def test_video_and_mqtt_fail_independently(self):
         fixture = os.environ.get("RM27_TEST_HEVC")
         if not fixture:

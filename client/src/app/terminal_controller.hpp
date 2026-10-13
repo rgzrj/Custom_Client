@@ -70,6 +70,8 @@ class TerminalController final : public QObject {
     // 有线输入动作映射表（界面标题与按键提示同源）与最近一次派发结果。
     Q_PROPERTY(QVariantList inputActions READ inputActions CONSTANT)
     Q_PROPERTY(QString lastInputDecision READ lastInputDecision NOTIFY stateChanged)
+    Q_PROPERTY(QString refereeDiagnosticsLabel READ refereeDiagnosticsLabel NOTIFY stateChanged)
+    Q_PROPERTY(QString commandDeliveryLabel READ commandDeliveryLabel NOTIFY stateChanged)
     // 画面来源与切源代价提示。
     Q_PROPERTY(QString videoSourceLabel READ videoSourceLabel NOTIFY stateChanged)
     Q_PROPERTY(QString sourceSwitchHint READ sourceSwitchHint NOTIFY stateChanged)
@@ -149,6 +151,8 @@ public:
     [[nodiscard]] double refereeFreshnessScale() const;
     [[nodiscard]] QVariantList inputActions() const;
     [[nodiscard]] QString lastInputDecision() const;
+    [[nodiscard]] QString refereeDiagnosticsLabel() const;
+    [[nodiscard]] QString commandDeliveryLabel() const;
     [[nodiscard]] QString videoSourceLabel() const;
     [[nodiscard]] QString sourceSwitchHint() const;
     [[nodiscard]] double presentFps() const noexcept;

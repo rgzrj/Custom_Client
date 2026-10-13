@@ -61,8 +61,10 @@ Popup {
     readonly property var selectedAction: operation.currentIndex < 0 ? null : actions[operation.currentIndex]
     readonly property bool complete: {
         if (!selectedAction) return false;
-        for (const field of selectedAction.fields)
+        for (const field of selectedAction.fields) {
             if (draft[field.key] === undefined) return false;
+            if (field.step && draft[field.key] % field.step !== 0) return false;
+        }
         if (selectedAction.id === "performance" && draft.shooter === 0 && draft.chassis === 0 && draft.sentry === -1)
             return false;
         return true;
@@ -78,7 +80,7 @@ Popup {
         close();
         submitRequested(id, parameters, robotId);
     }
-    onOpened: {
+    onAboutToShow: {
         operation.currentIndex = -1;
         draft = ({});
         targetRobotId = backend.officialActionRobotId;
@@ -113,10 +115,12 @@ Popup {
         }
         ScrollView {
             id: parameterScroll
+            objectName: "officialParameterScroll"
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.preferredHeight: fields.implicitHeight
             contentWidth: availableWidth
+            Component.onCompleted: contentItem.boundsBehavior = Flickable.StopAtBounds
             ColumnLayout {
                 id: fields
                 width: parameterScroll.availableWidth
@@ -158,6 +162,16 @@ Popup {
                         }
                     }
                 }
+                Label {
+                    objectName: "officialActionDelivery"
+                    Layout.fillWidth: true
+                    text: popup.backend.commandDeliveryLabel || ""
+                    visible: text.length > 0
+                    textFormat: Text.PlainText
+                    color: theme.textSecondary
+                    font.pixelSize: theme.fsMicro
+                    wrapMode: Text.WrapAnywhere
+                }
             }
         }
         Label {
@@ -170,6 +184,7 @@ Popup {
         Label {
             Layout.fillWidth: true
             text: popup.backend.lastInputDecision || ""
+            textFormat: Text.PlainText
             visible: text.indexOf("赛事操作") === 0
             color: theme.textSecondary
             font.pixelSize: theme.fsMicro

@@ -36,6 +36,12 @@
 #include <QWheelEvent>
 #include <QtEndian>
 #include <cmath>
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 #include "app/terminal_controller.hpp"
 #include "app/runtime_log.hpp"
 #include "video/udp_video_ingress.hpp"
@@ -98,11 +104,37 @@ class PlaybackTest : public QObject {
         return nullptr;
     }
 
+    static void activateInputWindow(QWindow *window)
+    {
+        window->resize(640,480);
+        if (QGuiApplication::platformName() == "windows") window->setFlag(Qt::WindowStaysOnTopHint);
+        window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(window));
+#ifdef Q_OS_WIN
+        if (QGuiApplication::platformName() == "windows") {
+            const auto hwnd = reinterpret_cast<HWND>(window->winId());
+            window->raise(); window->requestActivate(); SetForegroundWindow(hwnd);
+            if (GetForegroundWindow() != hwnd) {
+                const auto position = QCursor::pos();
+                QCursor::setPos(window->mapToGlobal(QPoint(window->width()/2,window->height()/2)));
+                INPUT click[2]{};
+                click[0].type = click[1].type = INPUT_MOUSE;
+                click[0].mi.dwFlags = MOUSEEVENTF_LEFTDOWN; click[1].mi.dwFlags = MOUSEEVENTF_LEFTUP;
+                QCOMPARE(SendInput(2, click, sizeof(INPUT)), UINT(2));
+                QTRY_COMPARE(GetForegroundWindow(), hwnd);
+                QCursor::setPos(position);
+            }
+            QVERIFY(QTest::qWaitForWindowActive(window));
+        }
+#endif
+    }
+
 private slots:
     void operatorInputLifecycle()
     {
         rm27::app::OperatorInput input;
         QWindow window;
+        activateInputWindow(&window);
         input.observe(&window);
         QEvent activate(QEvent::WindowActivate);
         QCoreApplication::sendEvent(&window, &activate);
@@ -145,7 +177,8 @@ private slots:
                           Qt::NoModifier, Qt::ScrollUpdate, false);
         QCoreApplication::sendEvent(&window, &wheel);
         QTRY_VERIFY(!frames.empty());
-        QCOMPARE(frames.front().x, 5); QCOMPARE(frames.front().y, -3);
+        QCOMPARE(frames.front().x, input.relativeMouseCaptured() ? 0 : 5);
+        QCOMPARE(frames.front().y, input.relativeMouseCaptured() ? 0 : -3);
         QCOMPARE(frames.front().wheel, 120);
         QTRY_VERIFY(frames.size() >= 2);
         QCOMPARE(frames.back().x, 0); QCOMPARE(frames.back().y, 0);
@@ -164,6 +197,7 @@ private slots:
         key(&window, QEvent::KeyPress, Qt::Key_S);
         auto other = std::make_unique<QWindow>();
         input.observe(other.get());
+        activateInputWindow(other.get());
         QCoreApplication::sendEvent(other.get(), &activate); input.setEnabled(true);
         key(other.get(), QEvent::KeyPress, Qt::Key_S); QCOMPARE(input.frame().keys, 0u);
         key(other.get(), QEvent::KeyRelease, Qt::Key_S);
@@ -172,6 +206,92 @@ private slots:
         other.reset(); QVERIFY(!input.enabled()); QCOMPARE(input.frame().keys, 0u);
         input.observe(nullptr); input.setEnabled(true); QVERIFY(!input.enabled());
     }
+    void operatorInputSensitivity()
+    {
+        if (QGuiApplication::platformName() == "windows") QSKIP("Portable delta tests use offscreen; native input has a separate test");
+        rm27::app::OperatorInput input;
+        QWindow window;
+        input.observe(&window);
+        QEvent activate(QEvent::WindowActivate);
+        QCoreApplication::sendEvent(&window, &activate);
+        input.setEnabled(true);
+        const auto move = [&](qreal x, qreal y) {
+            QMouseEvent event(QEvent::MouseMove, {x,y}, {x,y}, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QCoreApplication::sendEvent(&window, &event);
+        };
+        input.setMouseSensitivity(150);
+        move(0,0); move(7,3);
+        QCOMPARE(input.frame().x, 10); QCOMPARE(input.frame().y, -4);
+        move(8,4);
+        QCOMPARE(input.frame().x, 12); QCOMPARE(input.frame().y, -6);
+        input.setMouseSensitivity(10);
+        move(0,0);
+        for (int i = 1; i <= 10; ++i) move(i,i);
+        QCOMPARE(input.frame().x, 1); QCOMPARE(input.frame().y, -1);
+        input.setEnabled(false); input.setEnabled(true);
+        move(100,100); // A new baseline never sends a jump.
+        QCOMPARE(input.frame().x, 0); QCOMPARE(input.frame().y, 0);
+        move(99,99);
+        input.setMouseSensitivity(300); // Clears pending motion and fractional carry.
+        move(500,500); move(501,499);
+        QCOMPARE(input.frame().x, 3); QCOMPARE(input.frame().y, 3);
+    }
+    void nativeMouseCapture()
+    {
+#ifdef Q_OS_WIN
+        if (QGuiApplication::platformName() != "windows") QSKIP("Windows native input only");
+        const auto cursor = QCursor::pos();
+        const auto restoreCursor = qScopeGuard([&] { QCursor::setPos(cursor); });
+        QWindow window;
+        activateInputWindow(&window);
+        rm27::app::OperatorInput input;
+        input.observe(&window);
+        input.setEnabled(true);
+        QVERIFY(input.enabled() && input.relativeMouseCaptured());
+        QCOMPARE(window.cursor().shape(), Qt::BlankCursor);
+        // Check the OS registration, not just a local flag.
+        const auto registered = [&] {
+            UINT count = 0;
+            GetRegisteredRawInputDevices(nullptr, &count, sizeof(RAWINPUTDEVICE));
+            std::vector<RAWINPUTDEVICE> devices(count);
+            if (!count || GetRegisteredRawInputDevices(devices.data(), &count, sizeof(RAWINPUTDEVICE)) == UINT(-1)) return false;
+            return std::any_of(devices.begin(), devices.end(), [&](const auto &d) {
+                return d.usUsagePage == 1 && d.usUsage == 2 && d.dwFlags == 0
+                    && d.hwndTarget == reinterpret_cast<HWND>(window.winId());
+            });
+        };
+        QVERIFY(registered());
+        // Qt's legacy mouse events must not duplicate or introduce raw movement.
+        QMouseEvent baseline(QEvent::MouseMove, {0,0}, {0,0}, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QMouseEvent legacy(QEvent::MouseMove, {10000,-10000}, {10000,-10000}, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(&window, &baseline);
+        QCoreApplication::sendEvent(&window, &legacy);
+        QCOMPARE(input.frame().x, 0); QCOMPARE(input.frame().y, 0);
+        input.setEnabled(false);
+        QVERIFY(!input.relativeMouseCaptured() && !registered());
+        QCOMPARE(window.cursor().shape(), Qt::ArrowCursor);
+        input.setEnabled(true);
+        QVERIFY(input.relativeMouseCaptured());
+        QCOMPARE(input.frame().x, 0); QCOMPARE(input.frame().y, 0);
+        QSignalSpy captureLost(&input, &rm27::app::OperatorInput::captureLost);
+        // A malformed OS input handle closes capture rather than forwarding garbage.
+        QVERIFY(PostMessage(reinterpret_cast<HWND>(window.winId()), WM_INPUT, RIM_INPUT, 0));
+        QTRY_VERIFY(!input.enabled() && !input.relativeMouseCaptured() && !registered());
+        QCOMPARE(captureLost.size(), 1);
+        input.setEnabled(true);
+        QVERIFY(input.relativeMouseCaptured());
+        QVERIFY(PostMessage(reinterpret_cast<HWND>(window.winId()), WM_INPUT, RIM_INPUT, 0));
+        input.setEnabled(false); input.setEnabled(true);
+        QTest::qWait(20); // This invalid packet belonged to the previous capture.
+        QVERIFY(input.enabled() && input.relativeMouseCaptured());
+        QCOMPARE(captureLost.size(), 1);
+        QEvent lost(QEvent::WindowDeactivate);
+        QCoreApplication::sendEvent(&window, &lost);
+        QVERIFY(!input.enabled() && !input.relativeMouseCaptured() && !registered());
+#else
+        QSKIP("Windows native input only");
+#endif
+    }
     void officialActionPanel()
     {
         // UI-only identity fixture; it owns no transport or control permission.
@@ -179,7 +299,7 @@ private slots:
         engine.loadData("import QtQuick\nimport QtQuick.Controls\nimport \".\"\n"
             "ApplicationWindow { width: 1180; height: 680; visible: true; color: \"#071019\";"
             "QtObject { id: source; objectName: \"actionIdentityFixture\";"
-            "property int officialActionRobotId: 3; signal stateChanged();"
+            "property int officialActionRobotId: 3; property string commandDeliveryLabel: ''; property string lastInputDecision: ''; signal stateChanged();"
             "onOfficialActionRobotIdChanged: stateChanged() }"
             "OfficialActions { objectName: \"testOfficialActions\"; backend: source } }",
             QUrl::fromLocalFile(QFileInfo(QStringLiteral(RM27_QML_SOURCE)).absolutePath()
@@ -232,6 +352,111 @@ private slots:
         QVERIFY(!popup->property("visible").toBool());
         QCOMPARE(submitted.size(), 1); // No replay on identity changes.
 
+        source->setProperty("officialActionRobotId", 3);
+        struct ActionCase {
+            int index;
+            const char* name;
+            std::vector<std::pair<const char*, int>> selections;
+            QVariantMap expected;
+        };
+        // Independent expected parameter codes, including cancellation/false/zero.
+        const ActionCase cases[]{
+            {0,"performance",{{"shooter",1},{"chassis",2},{"sentry",2}},{{"shooter",1},{"chassis",2},{"sentry",1}}},
+            {1,"deploy",{{"mode",0}},{{"mode",0}}},
+            {2,"assembly",{{"operation",2},{"difficulty",0}},{{"operation",2},{"difficulty",0}}},
+            {3,"ammo17",{},{{"quantity",10}}}, {4,"ammo42",{},{{"quantity",1}}},
+            {5,"freeRespawn",{},{}}, {6,"paidRespawn",{},{}}, {7,"rune",{},{}},
+            {8,"dart",{{"target",4},{"open",0},{"confirm",1}},{{"target",5},{"open",0},{"confirm",1}}},
+            {9,"sentry",{{"command",10}},{{"command",12}}}, {10,"air",{{"command",0}},{{"command",0}}}
+        };
+        for (const auto &sample : cases) {
+            QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+            choice->setProperty("currentIndex", sample.index);
+            for (const auto &[name, index] : sample.selections) {
+                const auto objectName = QStringLiteral("officialParameter_") + QString::fromLatin1(name);
+                QVERIFY(select(objectName.toUtf8().constData(), index));
+            }
+            QTRY_COMPARE(popup->property("draft").toMap(), sample.expected);
+            QVERIFY(popup->property("complete").toBool());
+            const int before = submitted.size();
+            QVERIFY(QMetaObject::invokeMethod(popup, "submitDraft"));
+            QCOMPARE(submitted.size(), before + 1);
+            QCOMPARE(submitted.last()[0].toString(), QString::fromLatin1(sample.name));
+            QCOMPARE(submitted.last()[1].toMap(), sample.expected);
+            QCOMPARE(submitted.last()[2].toInt(), 3);
+        }
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        choice->setProperty("currentIndex", 3);
+        QTRY_COMPARE(popup->property("draft").toMap(), (QVariantMap{{"quantity",10}}));
+        choice->setProperty("currentIndex", 4);
+        QTRY_COMPARE(popup->property("draft").toMap(), (QVariantMap{{"quantity",1}}));
+        choice->setProperty("currentIndex", 1);
+        QVERIFY(popup->property("draft").toMap().isEmpty());
+        QVERIFY(!popup->property("complete").toBool());
+        choice->setProperty("currentIndex", 3);
+        auto* quantity = findVisual(window->contentItem(), "officialQuantity_quantity");
+        QVERIFY(quantity);
+        auto* editor = quantity->property("contentItem").value<QQuickItem*>();
+        QVERIFY(editor);
+        editor->forceActiveFocus();
+        QVERIFY(QMetaObject::invokeMethod(editor, "selectAll"));
+        QTest::keyClick(window, Qt::Key_3); QTest::keyClick(window, Qt::Key_0);
+        QCOMPARE(editor->property("text").toString(), QStringLiteral("30"));
+        auto* submitButton = findVisual(window->contentItem(), "officialActionSubmit");
+        QVERIFY(submitButton && submitButton->isEnabled());
+        const int beforeEdit = submitted.size();
+        QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier,
+            submitButton->mapToScene(submitButton->boundingRect().center()).toPoint());
+        QTRY_COMPARE(submitted.size(), beforeEdit + 1);
+        QCOMPARE(submitted.last()[1].toMap(), (QVariantMap{{"quantity",30}}));
+
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        choice->setProperty("currentIndex", 3);
+        quantity = findVisual(window->contentItem(), "officialQuantity_quantity");
+        editor = quantity->property("contentItem").value<QQuickItem*>();
+        editor->forceActiveFocus();
+        QVERIFY(QMetaObject::invokeMethod(editor, "selectAll"));
+        QTest::keyClick(window, Qt::Key_1); QTest::keyClick(window, Qt::Key_1);
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(quantity->property("value").toInt(), 11);
+        QVERIFY(!popup->property("complete").toBool()); // 17mm must be a multiple of ten.
+        const int beforeInvalid = submitted.size();
+        QVERIFY(QMetaObject::invokeMethod(popup, "submitDraft"));
+        QCOMPARE(submitted.size(), beforeInvalid);
+        QVERIFY(QMetaObject::invokeMethod(popup, "close"));
+
+        window->resize(480,360);
+        QVERIFY(QMetaObject::invokeMethod(popup, "open"));
+        choice->setProperty("currentIndex", 0);
+        QVERIFY(select("officialParameter_shooter",1));
+        QVERIFY(select("officialParameter_chassis",0));
+        QVERIFY(select("officialParameter_sentry",0));
+        QTest::qWait(80);
+        submitButton = findVisual(window->contentItem(), "officialActionSubmit");
+        const auto buttonRect = submitButton->mapRectToScene(submitButton->boundingRect());
+        QVERIFY(buttonRect.left() >= 0 && buttonRect.right() <= window->width());
+        QVERIFY(buttonRect.top() >= 0 && buttonRect.bottom() <= window->height());
+        auto* parameterScroll = findVisual(window->contentItem(), "officialParameterScroll");
+        auto* sentrySelection = findVisual(window->contentItem(), "officialParameter_sentry");
+        QVERIFY(parameterScroll && sentrySelection);
+        const auto scrollPoint = parameterScroll->mapToScene(parameterScroll->boundingRect().center());
+        QWheelEvent scroll(scrollPoint, window->mapToGlobal(scrollPoint.toPoint()), {}, {0,-1200},
+            Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        QCoreApplication::sendEvent(window, &scroll);
+        QTest::qWait(120); // Check after the wheel animation advances, not before rendering.
+        QTRY_VERIFY(sentrySelection->mapRectToScene(sentrySelection->boundingRect()).top()
+            >= parameterScroll->mapRectToScene(parameterScroll->boundingRect()).top() - 1);
+        QTRY_VERIFY(sentrySelection->mapRectToScene(sentrySelection->boundingRect()).bottom()
+            <= parameterScroll->mapRectToScene(parameterScroll->boundingRect()).bottom() + 1);
+        QVERIFY(sentrySelection->isVisible() && sentrySelection->height() > 0);
+        auto* flickable = parameterScroll->property("contentItem").value<QQuickItem*>();
+        qInfo() << "Small action panel" << window->devicePixelRatio()
+                << sentrySelection->mapRectToScene(sentrySelection->boundingRect())
+                << parameterScroll->mapRectToScene(parameterScroll->boundingRect())
+                << flickable->property("contentY") << flickable->property("contentHeight");
+        QVERIFY(window->grabWindow().save(rm27::app::previewPath("official-actions-small.png")));
+        QVERIFY(QMetaObject::invokeMethod(popup, "close"));
+
         TerminalController terminal(false, nullptr, 0, false, 0, false, true);
         QCOMPARE(terminal.officialActionRobotId(), 0);
         QVERIFY(!terminal.requestPerformance(0, 0, -1, 3));
@@ -271,6 +496,72 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(realPopup, "close"));
         QVERIFY(!terminal.uiOccupied());
         QVERIFY(!terminal.controlsArmed());
+        mainWindow->setProperty("startPanelVisible", true);
+        start->setProperty("diagnosticsExpanded", true);
+        auto* diagnostics = findVisual(mainWindow->contentItem(), "startPanelRefereeDiagnostics");
+        auto* delivery = findVisual(mainWindow->contentItem(), "startPanelCommandDelivery");
+        auto* summary = findVisual(mainWindow->contentItem(), "connectionStateSummary");
+        QVERIFY(diagnostics && delivery && summary);
+        QTRY_VERIFY(diagnostics->isVisible() && delivery->isVisible());
+        QCOMPARE(diagnostics->property("text").toString(), terminal.refereeDiagnosticsLabel());
+        QCOMPARE(delivery->property("text").toString(), terminal.commandDeliveryLabel());
+        QVERIFY(!summary->property("text").toString().contains(QStringLiteral("本机 MQTT")));
+        QTest::qWait(80);
+        QVERIFY(mainWindow->grabWindow().save(rm27::app::previewPath("referee-diagnostics-1180x680.png")));
+#ifdef RM27_UPSTREAM_BACKEND
+        // Real Main/controller rejection path, using a loopback peer that supplies only identity.
+        QTcpServer broker;
+        QVERIFY(broker.listen(QHostAddress::LocalHost, 0));
+        QByteArray inbound;
+        int subscriptions = 0, publishes = 0;
+        const auto identityPacket = QByteArray::fromHex("30150011")
+            + QByteArray("RobotStaticStatus") + QByteArray::fromHex("2003"); // robot_id is field 4.
+        connect(&broker, &QTcpServer::newConnection, &broker, [&] {
+            auto* peer = broker.nextPendingConnection();
+            auto* refresh = new QTimer(peer);
+            connect(refresh, &QTimer::timeout, peer, [peer, identityPacket] { peer->write(identityPacket); });
+            connect(peer, &QTcpSocket::readyRead, peer, [&, peer, refresh] {
+                inbound += peer->readAll();
+                while (inbound.size() >= 2 && inbound.size() >= 2 + quint8(inbound[1])) {
+                    const auto header = quint8(inbound[0]);
+                    const int length = quint8(inbound[1]);
+                    const auto body = inbound.mid(2,length);
+                    inbound.remove(0,2+length);
+                    if (header == 0x10) peer->write(QByteArray::fromHex("20020000"));
+                    else if (header == 0x82) {
+                        peer->write(QByteArray::fromHex("9003") + body.left(2) + char(1));
+                        if (++subscriptions == 24) { peer->write(identityPacket); refresh->start(250); }
+                    } else if ((header >> 4) == 3) ++publishes;
+                    else if (header == 0xc0) peer->write(QByteArray::fromHex("d000"));
+                }
+            });
+        });
+        QVERIFY(terminal.configureRm2026("127.0.0.1", broker.serverPort(), 3, true));
+        QTRY_COMPARE(terminal.officialActionRobotId(), 3);
+        QTRY_VERIFY(terminal.refereeFresh()); // Wait for the GUI snapshot/notification too.
+        QVERIFY(QMetaObject::invokeMethod(start, "requestOfficialActions"));
+        QTRY_VERIFY(realPopup->property("visible").toBool());
+        QQuickItem* realChoice = nullptr;
+        QTRY_VERIFY((realChoice = findVisual(mainWindow->contentItem(), "officialActionChoice")) != nullptr);
+        realChoice->setProperty("currentIndex", 5); // Free respawn, no invented parameters.
+        QSignalSpy realSubmissions(realPopup, SIGNAL(submitRequested(QString,QVariant,int)));
+        QVERIFY(QMetaObject::invokeMethod(realPopup, "submitDraft"));
+        QTRY_VERIFY(realPopup->property("visible").toBool());
+        QVERIFY(terminal.lastInputDecision().contains(QStringLiteral("操作权限尚未核验")));
+        QVERIFY(realPopup->property("draft").toMap().isEmpty());
+        QCOMPARE(realChoice->property("currentIndex").toInt(), -1);
+        realChoice->setProperty("currentIndex", 4); // Reselect after rejection, no replay.
+        QTRY_COMPARE(realPopup->property("draft").toMap(), (QVariantMap{{"quantity",1}}));
+        QVERIFY(QMetaObject::invokeMethod(realPopup, "submitDraft"));
+        QTRY_VERIFY(realPopup->property("visible").toBool());
+        QCOMPARE(realSubmissions.size(), 2);
+        QCOMPARE(realSubmissions.last()[0].toString(), QStringLiteral("ammo42"));
+        QCOMPARE(realSubmissions.last()[1].toMap(), (QVariantMap{{"quantity",1}}));
+        QCOMPARE(publishes, 0);
+        QVERIFY(!terminal.controlsArmed());
+        QVERIFY(QMetaObject::invokeMethod(realPopup, "close"));
+        terminal.enterLocalPlayback();
+#endif
     }
 #ifdef RM27_UPSTREAM_BACKEND
     void upstreamHevcVideo()

@@ -296,7 +296,8 @@ Item {
             Text {
                 objectName: "connectionStateSummary"
                 Layout.fillWidth: true
-                text: (panel.backend.mqttEnabled ? "本机 MQTT · " + (panel.backend.mqttConnected ? "订阅已建立" : "未连接 / 重试中")
+                text: (panel.backend.upstreamData ? panel.backend.linkBannerText + " · " + (panel.backend.mqttConnected ? "订阅已建立" : "未连接")
+                        : panel.backend.mqttEnabled ? "本机 MQTT · " + (panel.backend.mqttConnected ? "订阅已建立" : "未连接 / 重试中")
                         : "本机 UDP · " + (panel.backend.refereeFresh ? "正在接收有效数据" : "等待有效数据"))
                     + "   |   " + panel.backend.videoStatusLabel
                     + "   |   有线控制器 " + (panel.backend.controllerConnected ? "在线" : "未接入")
@@ -327,6 +328,38 @@ Item {
                         Layout.alignment: Qt.AlignTop
                         spacing: 8
 
+                        Text {
+                            objectName: "startPanelRefereeDiagnostics"
+                            Layout.fillWidth: true
+                            visible: panel.diagnosticsExpanded
+                            text: panel.backend.refereeDiagnosticsLabel
+                            textFormat: Text.PlainText
+                            color: theme.textSecondary
+                            font.family: theme.uiFont
+                            font.pixelSize: theme.fsMicro
+                            wrapMode: Text.WrapAnywhere
+                        }
+                        Text {
+                            objectName: "startPanelCommandDelivery"
+                            Layout.fillWidth: true
+                            visible: panel.diagnosticsExpanded
+                            text: panel.backend.commandDeliveryLabel
+                            textFormat: Text.PlainText
+                            color: theme.textSecondary
+                            font.family: theme.uiFont
+                            font.pixelSize: theme.fsMicro
+                            wrapMode: Text.WrapAnywhere
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: panel.diagnosticsExpanded && text.length > 0
+                            text: panel.backend.lastInputDecision
+                            textFormat: Text.PlainText
+                            color: theme.amber
+                            font.family: theme.uiFont
+                            font.pixelSize: theme.fsMicro
+                            wrapMode: Text.WrapAnywhere
+                        }
                         SectionTitle { text: "链路预设" }
 
                         RowLayout {
